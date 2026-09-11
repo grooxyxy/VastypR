@@ -17,7 +17,11 @@
     <path
         android:fillColor="#5B5BF0"
         android:pathData="M38,40 L48,64 L54,50 L60,64 L70,40 L64,40 L57,55 L54,48 L51,55 L44,40 Z" />
-    <!-- Brush accent dot -->
-    <circle android:fillColor="#9D7BFF" android:cx="74" android:cy="68" android:r="6" />
-    <circle android:fillColor="#14141F" android:cx="74" android:cy="68" android:r="2.4" />
+    <!-- Brush accent dot (path arc — <circle> tidak valid di VectorDrawable) -->
+    <path
+        android:fillColor="#9D7BFF"
+        android:pathData="M68,68 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z" />
+    <path
+        android:fillColor="#14141F"
+        android:pathData="M71.6,68 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0 Z" />
 </vector>
