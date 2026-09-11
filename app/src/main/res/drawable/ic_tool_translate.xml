@@ -2,12 +2,25 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">
-    <!-- TRANSLATE — lengkung alih bahasa + globe (generated vector, outline konsisten 1.8dp) -->
+    <!-- TRANSLATE v2 — 2 bubble overlap + panah tukar. -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.14"
+        android:strokeColor="#000000"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M3,4 H13 V10 H8.5 L6,12.5 V10 H3 Z" />
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.10"
+        android:strokeColor="#000000"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"
+        android:pathData="M11,12 H21 V19 H16 L13.5,21.5 V19 H11 Z" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#000000"
         android:strokeWidth="1.8"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M3.5,6 H11.5 M7.5,4 V6 M5,6 C5,10.5 8,14 12,15.5 M17,9.5 A4.5,4.5 0 1,0 17,18.5 A4.5,4.5 0 1,0 17,9.5 Z M17,9.5 C15,12 15,16 17,18.5 M17,9.5 C19,12 19,16 17,18.5 M12.5,14 H21.5" />
+        android:pathData="M5.5,6.8 H10.5 M5.5,8.8 H9 M13.5,15 H18.5 M13.5,17 H17" />
 </vector>

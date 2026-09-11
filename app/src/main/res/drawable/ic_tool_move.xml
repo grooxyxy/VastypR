@@ -2,12 +2,20 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">
-    <!-- MOVE — kotak layer + nub 4 arah (generated vector, outline konsisten 1.8dp) -->
+    <!-- MOVE v2 — layer box solid-fill ringan + 4 nub. Beda dari PAN (ada box). -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.18"
+        android:strokeColor="#000000"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8.5,8.5 H15.5 V15.5 H8.5 Z" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#000000"
-        android:strokeWidth="1.8"
+        android:strokeWidth="2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M9,9 H15 V15 H9 Z M12,2 V6 M12,2 L9.5,4.5 M12,2 L14.5,4.5 M12,22 V18 M12,22 L9.5,19.5 M12,22 L14.5,19.5 M2,12 H6 M2,12 L4.5,9.5 M2,12 L4.5,14.5 M22,12 H18 M22,12 L19.5,9.5 M22,12 L19.5,14.5" />
+        android:pathData="M12,2 V5.5 M12,2 L9.8,4.2 M12,2 L14.2,4.2 M12,22 V18.5 M12,22 L9.8,19.8 M12,22 L14.2,19.8 M2,12 H5.5 M2,12 L4.2,9.8 M2,12 L4.2,14.2 M22,12 H18.5 M22,12 L19.8,9.8 M22,12 L19.8,14.2" />
 </vector>

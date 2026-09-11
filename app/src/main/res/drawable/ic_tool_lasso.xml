@@ -2,17 +2,21 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">
-    <!-- LASSO — loop + ekor (generated vector, outline konsisten 2dp) -->
+    <!-- LASSO v2 — loop elips tebal + simpul solid + ekor melengkung. -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#000000"
         android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:pathData="M9,11 a5,4 0 1,0 8,2 a5,4 0 1,0 -8,-2z" />
+        android:strokeLineJoin="round"
+        android:pathData="M10.5,4.5 C14.5,4.5 18,7 18,10.5 C18,14 14.5,16.5 10.8,16.5 C7.5,16.5 5,14 5,11 C5,8 7.3,5.8 10.5,4.5 Z" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M9,15.2 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0 Z" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#000000"
         android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:pathData="M9,13 L4,20" />
+        android:pathData="M10.8,16.8 C8.5,18.5 6,20 4.5,21.5" />
 </vector>

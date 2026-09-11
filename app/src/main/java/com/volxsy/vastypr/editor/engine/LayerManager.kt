@@ -62,6 +62,22 @@ object LayerManager {
             if (it is Layer.Text) it.copy(content = content, style = style, name = content.take(16)) else it
         }
 
+    /** Geser offset layer aktif (MOVE tool). dx/dy fraksi gambar, clamp -0.45..0.45. */
+    fun nudgeOffset(layers: List<Layer>, id: String, dx: Float, dy: Float): List<Layer> =
+        map(layers, id) {
+            when (it) {
+                is Layer.Text -> it.copy(
+                    offsetX = (it.offsetX + dx).coerceIn(-0.45f, 0.45f),
+                    offsetY = (it.offsetY + dy).coerceIn(-0.45f, 0.45f),
+                )
+                is Layer.Image -> it.copy(
+                    offsetX = (it.offsetX + dx).coerceIn(-0.45f, 0.45f),
+                    offsetY = (it.offsetY + dy).coerceIn(-0.45f, 0.45f),
+                )
+                else -> it
+            }
+        }
+
     fun move(layers: List<Layer>, from: Int, to: Int): List<Layer> {
         if (from !in layers.indices || to !in layers.indices) return layers
         val m = layers.toMutableList()

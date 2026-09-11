@@ -2,19 +2,24 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">
-    <!-- EYEDROP — pipet diagonal + tetes (generated vector, outline konsisten 1.8dp) -->
+    <!-- EYEDROP v2 — pipet + bohlam bulat + tetes solid. -->
     <path
         android:fillColor="#00000000"
         android:strokeColor="#000000"
-        android:strokeWidth="1.8"
+        android:strokeWidth="2"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M5,19 L14,10 M14,10 L18,6 L20,4 M16,8 L18,6" />
+        android:pathData="M4,20 L12.5,11.5 M12.5,11.5 L16,8 L18.5,5.5" />
     <path
-        android:fillColor="#00000000"
+        android:fillColor="#000000"
+        android:fillAlpha="0.20"
         android:strokeColor="#000000"
-        android:strokeWidth="1.8"
-        android:strokeLineCap="round"
+        android:strokeWidth="2"
+        android:pathData="M14.5,4.5 a2.6,2.6 0 1,0 5.2,0 a2.6,2.6 0 1,0 -5.2,0 Z" />
+    <path
+        android:fillColor="#000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.4"
         android:strokeLineJoin="round"
-        android:pathData="M19.5,13 C20.5,14.8 21.5,16 21.5,17.5 A2,2 0 0,1 17.5,17.5 C17.5,16 18.5,14.8 19.5,13 Z" />
+        android:pathData="M19.5,12.5 C20.8,14.5 22,16 22,17.6 A2.5,2.5 0 0,1 17,17.6 C17,16 18.2,14.5 19.5,12.5 Z" />
 </vector>

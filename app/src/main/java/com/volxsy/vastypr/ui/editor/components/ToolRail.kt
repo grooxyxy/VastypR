@@ -1,25 +1,52 @@
 package com.volxsy.vastypr.ui.editor.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.volxsy.vastypr.R
 import com.volxsy.vastypr.editor.model.EditorTool
 
 // Skill: android-compose-foundations + android-compose-performance
 // + android-compose-accessibility + android-mobile-frontend-design
-// Fluid: LazyRow (fling 60fps + recycling) ganti Row+horizontalScroll yang
-// me-recompose semua chip saat scroll. Target sentuh >=48dp via chip default.
-// Stabil: param `enabled` mengunci tool saat AI/export sibuk (cegah double-tap).
+// REDESIGN v2:
+// - Rail dibungkus Surface (tonal + shadow) + label seksi "CANVAS TOOLS" / "AI TOOLS"
+//   agar tidak tertutup canvas (dipadukan dengan clipToBounds + zIndex di Screen).
+// - Chip premium: icon 20dp baru (stroke 2dp + fill), selected = primaryContainer
+//   + border tegas + label semibold. Touch target >=48dp, contentDescription per tool.
+// - AI row: FilledTonal chip + badge count untuk Clean, konsisten dengan tool rail.
+
+private data class ToolItem(val tool: EditorTool, val icon: Int, val label: String, val desc: String)
+
+private val CanvasTools = listOf(
+    ToolItem(EditorTool.PAN, R.drawable.ic_tool_pan, "Pan", "Geser dan zoom canvas"),
+    ToolItem(EditorTool.MOVE, R.drawable.ic_tool_move, "Move", "Pindah layer aktif"),
+    ToolItem(EditorTool.SELECT_RECT, R.drawable.ic_tool_select, "Select", "Seleksi kotak"),
+    ToolItem(EditorTool.SELECT_LASSO, R.drawable.ic_tool_lasso, "Lasso", "Seleksi bebas"),
+    ToolItem(EditorTool.BRUSH, R.drawable.ic_tool_brush, "Brush", "Kuas dan penghapus"),
+    ToolItem(EditorTool.EYEDROP, R.drawable.ic_tool_eyedrop, "Eyedrop", "Ambil warna"),
+    ToolItem(EditorTool.TEXT, R.drawable.ic_tool_text, "Text", "Tambah teks"),
+    ToolItem(EditorTool.CROP, R.drawable.ic_tool_crop, "Crop", "Potong non-destruktif"),
+)
+
 @Composable
 fun ToolRail(
     current: EditorTool,
@@ -27,32 +54,58 @@ fun ToolRail(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    val tools: List<Triple<EditorTool, Int, String>> = listOf(
-        Triple(EditorTool.PAN, R.drawable.ic_tool_pan, "Pan"),
-        Triple(EditorTool.MOVE, R.drawable.ic_tool_move, "Move"),
-        Triple(EditorTool.SELECT_RECT, R.drawable.ic_tool_select, "Select"),
-        Triple(EditorTool.SELECT_LASSO, R.drawable.ic_tool_lasso, "Lasso"),
-        Triple(EditorTool.BRUSH, R.drawable.ic_tool_brush, "Brush"),
-        Triple(EditorTool.EYEDROP, R.drawable.ic_tool_eyedrop, "Eyedrop"),
-        Triple(EditorTool.TEXT, R.drawable.ic_tool_text, "Text"),
-        Triple(EditorTool.CROP, R.drawable.ic_tool_crop, "Crop"),
-    )
-    LazyRow(
+    Surface(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp,
     ) {
-        items(tools, key = { it.first }) { (t, res, label) ->
-            FilterChip(
-                selected = current == t,
-                onClick = { onPick(t) },
-                enabled = enabled,
-                label = { Text(label) },
-                leadingIcon = { Icon(painterResource(res), contentDescription = null) },
-            )
+        Column {
+            SectionLabel("Canvas tools")
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(CanvasTools, key = { it.tool }) { item ->
+                    val selected = current == item.tool
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onPick(item.tool) },
+                        enabled = enabled,
+                        label = {
+                            Text(
+                                item.label,
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                ),
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                painterResource(item.icon),
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = enabled,
+                            selected = selected,
+                            borderWidth = if (selected) 1.5.dp else 1.dp,
+                        ),
+                        modifier = Modifier.semantics { contentDescription = item.desc },
+                    )
+                }
+            }
         }
     }
 }
+
+private data class AiItem(val key: String, val icon: Int, val label: String, val desc: String)
 
 @Composable
 fun AiToolRow(
@@ -65,42 +118,72 @@ fun AiToolRow(
     onClean: (() -> Unit)? = null,
     cleanBadge: String? = null,
 ) {
-    LazyRow(
+    Surface(
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        tonalElevation = 1.dp,
+        shadowElevation = 2.dp,
     ) {
-        item(key = "bubble") {
-            OutlinedButton(onClick = onBubble, enabled = enabled) {
-                Icon(painterResource(R.drawable.ic_tool_bubble), contentDescription = null)
-                Text("  Bubble")
-            }
-        }
-        item(key = "ocr") {
-            OutlinedButton(onClick = onOcr, enabled = enabled) {
-                Icon(painterResource(R.drawable.ic_tool_ocr), contentDescription = null)
-                Text("  OCR")
-            }
-        }
-        item(key = "inpaint") {
-            OutlinedButton(onClick = onInpaint, enabled = enabled) {
-                Icon(painterResource(R.drawable.ic_tool_inpaint), contentDescription = null)
-                Text("  Inpaint")
-            }
-        }
-        if (onClean != null) {
-            item(key = "clean") {
-                OutlinedButton(onClick = onClean, enabled = enabled) {
-                    Icon(painterResource(R.drawable.ic_tool_clean), contentDescription = null)
-                    Text("  Clean" + (cleanBadge?.let { " $it" } ?: ""))
+        Column {
+            SectionLabel("AI tools")
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                item(key = "bubble") {
+                    AiChip(R.drawable.ic_tool_bubble, "Bubble", "Deteksi bubble", enabled, onBubble)
+                }
+                item(key = "ocr") {
+                    AiChip(R.drawable.ic_tool_ocr, "OCR", "Baca teks gambar", enabled, onOcr)
+                }
+                item(key = "inpaint") {
+                    AiChip(R.drawable.ic_tool_inpaint, "Inpaint", "Hapus teks", enabled, onInpaint)
+                }
+                if (onClean != null) {
+                    item(key = "clean") {
+                        val label = "Clean" + (cleanBadge?.let { " $it" } ?: "")
+                        if (cleanBadge != null) {
+                            BadgedBox(badge = { Badge { Text(cleanBadge.trim('(', ')', ' ')) } }) {
+                                AiChip(R.drawable.ic_tool_clean, label, "Bersihkan semua bubble", enabled, onClean)
+                            }
+                        } else {
+                            AiChip(R.drawable.ic_tool_clean, label, "Bersihkan semua bubble", enabled, onClean)
+                        }
+                    }
+                }
+                item(key = "translate") {
+                    AiChip(R.drawable.ic_tool_translate, "Translate", "Terjemahkan teks", enabled, onTranslate)
                 }
             }
         }
-        item(key = "translate") {
-            OutlinedButton(onClick = onTranslate, enabled = enabled) {
-                Icon(painterResource(R.drawable.ic_tool_translate), contentDescription = null)
-                Text("  Translate")
-            }
-        }
     }
+}
+
+@Composable
+private fun AiChip(icon: Int, label: String, desc: String, enabled: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = false,
+        onClick = onClick,
+        enabled = enabled,
+        label = { Text(label, style = MaterialTheme.typography.labelLarge) },
+        leadingIcon = {
+            Icon(
+                painterResource(icon),
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+            )
+        },
+        modifier = Modifier.semantics { contentDescription = desc },
+    )
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text.uppercase(),
+        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .padding(start = 14.dp, top = 8.dp)
+            .semantics { contentDescription = text },
+    )
 }

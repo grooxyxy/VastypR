@@ -15,6 +15,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,7 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -52,9 +56,13 @@ import com.volxsy.vastypr.ui.components.FontPicker
 
 // Skill: android-compose-foundations + android-mobile-frontend-design
 // + android-state-management + android-local-persistence-datastore
-// Text editor ala Photoshop: konten + font + size/warna/bold/italic +
-// align 4 arah + Leading / Tracking / Word spacing / Paragraph spacing +
-// AllCaps/Underline/Strike + 5 efek DITUMPUK + save/load style.
+// REDESIGN v2 — Text editor ala Photoshop tapi rapi:
+// - Preview STICKY di atas dengan efek nyata (stroke/glow/shadow/gradient/bg),
+//   bukan teks polos — WYSIWYG sama dengan canvas.
+// - Seksi kartu: Konten | Font | Gaya & Paragraf | Tipografi | Efek — tiap kartu
+//   ElevatedCard + judul + slider berlabel nilai (em/px/sp).
+// - ColorRow 40dp + ring tegas + hex desc untuk a11y.
+// - Tombol Save/Load style sebagai FilledTonal, Selesai sebagai aksi primer.
 @Composable
 fun TextEditorDialog(
     initialContent: String,
@@ -75,7 +83,6 @@ fun TextEditorDialog(
     var italic by remember { mutableStateOf(initialStyle.italic) }
     var align by remember { mutableStateOf(initialStyle.align) }
     var fontId by remember { mutableStateOf(initialStyle.fontId) }
-    // Tipografi Photoshop (em).
     var leading by remember { mutableFloatStateOf(initialStyle.lineHeightEm) }
     var tracking by remember { mutableFloatStateOf(initialStyle.letterSpacingEm) }
     var wordGap by remember { mutableFloatStateOf(initialStyle.wordSpacingEm) }
@@ -139,113 +146,96 @@ fun TextEditorDialog(
         bgOn = b != null; b?.let { bgColor = it.color }
     }
 
-    // Preview memakai pipeline yang sama dengan canvas (wordSpaced + leading).
     val previewStyle = build()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Text") },
+        title = { Text("Edit Text", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                // Live preview
-                Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        previewStyle.wordSpaced(content.ifBlank { "Preview" }),
-                        fontSize = size.sp,
-                        color = color,
-                        fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
-                        fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
-                        textAlign = previewStyle.composeAlign(),
-                        lineHeight = previewStyle.composeLineHeight(),
-                        letterSpacing = previewStyle.composeTracking(),
-                        textDecoration = previewStyle.composeDecoration(),
+                // Live preview WYSIWYG dengan efek nyata
+                PreviewCard(content.ifBlank { "Preview" }, previewStyle)
+                CardSection("Konten") {
+                    TextField(
+                        value = content, onValueChange = { content = it },
+                        label = { Text("Isi teks (\\n = baris baru, baris kosong = paragraf)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
                     )
                 }
-                TextField(
-                    value = content, onValueChange = { content = it },
-                    label = { Text("Isi teks (\\n = baris baru, baris kosong = paragraf)") },
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                    minLines = 2,
-                )
-                Section("Font (preview + import)")
-                FontPicker(
-                    fonts = fonts, selectedId = fontId,
-                    getTypeface = getTypeface,
-                    onSelect = { fontId = it },
-                    onImportClick = onImportFont,
-                    onDelete = onDeleteFont,
-                )
-                Section("Ukuran: ${size.toInt()}sp")
-                Slider(value = size, onValueChange = { size = it }, valueRange = 12f..120f)
-                Section("Warna teks")
-                ColorRow(color, onPick = { color = it })
-                Section("Paragraf")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VastAlign.entries.forEach { a ->
-                        FilterChip(
-                            selected = align == a,
-                            onClick = { align = a },
-                            label = {
-                                Text(
-                                    when (a) {
-                                        VastAlign.LEFT -> "Kiri"
-                                        VastAlign.CENTER -> "Tengah"
-                                        VastAlign.RIGHT -> "Kanan"
-                                        VastAlign.JUSTIFY -> "Rata"
-                                    }
-                                )
-                            },
-                        )
+                CardSection("Font") {
+                    FontPicker(
+                        fonts = fonts, selectedId = fontId,
+                        getTypeface = getTypeface,
+                        onSelect = { fontId = it },
+                        onImportClick = onImportFont,
+                        onDelete = onDeleteFont,
+                    )
+                    LabeledSlider("Ukuran", "${size.toInt()}sp", size, 12f..120f) { size = it }
+                    Text("Warna teks", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                    ColorRow(color, onPick = { color = it })
+                }
+                CardSection("Paragraf & gaya") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        VastAlign.entries.forEach { a ->
+                            FilterChip(
+                                selected = align == a,
+                                onClick = { align = a },
+                                label = {
+                                    Text(
+                                        when (a) {
+                                            VastAlign.LEFT -> "Kiri"
+                                            VastAlign.CENTER -> "Tengah"
+                                            VastAlign.RIGHT -> "Kanan"
+                                            VastAlign.JUSTIFY -> "Rata"
+                                        },
+                                    )
+                                },
+                            )
+                        }
+                    }
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = bold, onClick = { bold = !bold }, label = { Text("Bold") })
+                        FilterChip(selected = italic, onClick = { italic = !italic }, label = { Text("Italic") })
+                        FilterChip(selected = caps, onClick = { caps = !caps }, label = { Text("AA") })
+                        FilterChip(selected = ul, onClick = { ul = !ul }, label = { Text("U̲") })
+                        FilterChip(selected = strike, onClick = { strike = !strike }, label = { Text("S̶") })
                     }
                 }
-                Section("Leading (jarak baris): ${"%.2f".format(leading)}em")
-                Slider(value = leading, onValueChange = { leading = it }, valueRange = 0.9f..2.5f)
-                Section("Tracking (jarak huruf): ${"%.2f".format(tracking)}em")
-                Slider(value = tracking, onValueChange = { tracking = it }, valueRange = -0.1f..0.5f)
-                Section("Word spacing (jarak kata): ${"%.2f".format(wordGap)}em")
-                Slider(value = wordGap, onValueChange = { wordGap = it }, valueRange = 0f..1f)
-                Section("Paragraph spacing: ${"%.2f".format(paraGap)}em")
-                Slider(value = paraGap, onValueChange = { paraGap = it }, valueRange = 0f..1.5f)
-                Text(
-                    "Paragraph spacing = jeda ekstra tiap batas paragraf (baris kosong). " +
-                        "Untuk teks 2 baris biasa cukup Leading.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = bold, onClick = { bold = !bold }, label = { Text("Bold") })
-                    FilterChip(selected = italic, onClick = { italic = !italic }, label = { Text("Italic") })
-                    FilterChip(selected = caps, onClick = { caps = !caps }, label = { Text("AA Caps") })
-                    FilterChip(selected = ul, onClick = { ul = !ul }, label = { Text("U̲") })
-                    FilterChip(selected = strike, onClick = { strike = !strike }, label = { Text("S̶") })
+                CardSection("Tipografi") {
+                    LabeledSlider("Leading (jarak baris)", "${"%.2f".format(leading)}em", leading, 0.9f..2.5f) { leading = it }
+                    LabeledSlider("Tracking (jarak huruf)", "${"%.2f".format(tracking)}em", tracking, -0.1f..0.5f) { tracking = it }
+                    LabeledSlider("Word spacing", "${"%.2f".format(wordGap)}em", wordGap, 0f..1f) { wordGap = it }
+                    LabeledSlider("Paragraph spacing", "${"%.2f".format(paraGap)}em", paraGap, 0f..1.5f) { paraGap = it }
+                    Text(
+                        "Paragraph spacing = jeda ekstra tiap batas paragraf (baris kosong). Untuk teks 2 baris biasa cukup Leading.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                Effect("Stroke", strokeOn, { strokeOn = it }) {
-                    ColorRow(strokeColor, onPick = { strokeColor = it })
-                    Slider(value = strokeW, onValueChange = { strokeW = it }, valueRange = 1f..24f)
-                }
-                Effect("Shadow", shadowOn, { shadowOn = it }) {
-                    ColorRow(shadowColor, onPick = { shadowColor = it })
-                    Text("Blur: ${shadowBlur.toInt()}")
-                    Slider(value = shadowBlur, onValueChange = { shadowBlur = it }, valueRange = 0f..32f)
-                }
-                Effect("Outer Glow", glowOn, { glowOn = it }) {
-                    ColorRow(glowColor, onPick = { glowColor = it })
-                    Text("Radius: ${glowR.toInt()}")
-                    Slider(value = glowR, onValueChange = { glowR = it }, valueRange = 4f..48f)
-                }
-                Effect("Gradient Fill", gradOn, { gradOn = it }) {
-                    Text("Warna 1"); ColorRow(gradA, onPick = { gradA = it })
-                    Text("Warna 2"); ColorRow(gradB, onPick = { gradB = it })
-                }
-                Effect("Background", bgOn, { bgOn = it }) {
-                    ColorRow(bgColor, onPick = { bgColor = it })
+                CardSection("Efek (ditumpuk)") {
+                    Effect("Stroke", strokeOn, { strokeOn = it }) {
+                        ColorRow(strokeColor, onPick = { strokeColor = it })
+                        LabeledSlider("Tebal", "${strokeW.toInt()}px", strokeW, 1f..24f) { strokeW = it }
+                    }
+                    Effect("Shadow", shadowOn, { shadowOn = it }) {
+                        ColorRow(shadowColor, onPick = { shadowColor = it })
+                        LabeledSlider("Blur", "${shadowBlur.toInt()}", shadowBlur, 0f..32f) { shadowBlur = it }
+                    }
+                    Effect("Outer Glow", glowOn, { glowOn = it }) {
+                        ColorRow(glowColor, onPick = { glowColor = it })
+                        LabeledSlider("Radius", "${glowR.toInt()}", glowR, 4f..48f) { glowR = it }
+                    }
+                    Effect("Gradient Fill", gradOn, { gradOn = it }) {
+                        Text("Warna 1"); ColorRow(gradA, onPick = { gradA = it })
+                        Text("Warna 2"); ColorRow(gradB, onPick = { gradB = it })
+                    }
+                    Effect("Background", bgOn, { bgOn = it }) {
+                        ColorRow(bgColor, onPick = { bgColor = it })
+                    }
                 }
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { onSaveStyle(build()) }) { Text("Save style") }
+                    FilledTonalButton(onClick = { onSaveStyle(build()) }) { Text("Save style") }
                     OutlinedButton(onClick = { onLoadStyle()?.let(::applyLoaded) }) { Text("Load style") }
                 }
             }
@@ -258,17 +248,110 @@ fun TextEditorDialog(
 }
 
 @Composable
-private fun Section(t: String) {
-    Text(t, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
+private fun CardSection(title: String, body: @Composable () -> Unit) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            Box(Modifier.padding(top = 8.dp)) { body() }
+        }
+    }
+}
+
+@Composable
+private fun PreviewCard(text: String, style: VastTextStyle) {
+    val bg = style.effects.filterIsInstance<TextEffect.Background>().firstOrNull()
+    val shadow = style.effects.filterIsInstance<TextEffect.DropShadow>().firstOrNull()
+    val stroke = style.effects.filterIsInstance<TextEffect.Stroke>().firstOrNull()
+    val glow = style.effects.filterIsInstance<TextEffect.OuterGlow>().firstOrNull()
+    val gradient = style.effects.filterIsInstance<TextEffect.GradientFill>().firstOrNull()
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+            .padding(14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.clip(RoundedCornerShape(8.dp))
+                .background(bg?.color ?: Color.Transparent)
+                .padding(8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            // Tumpuk: glow → stroke (8 arah) → fill/gradient, meniru canvas.
+            val ann = style.wordSpaced(text)
+            val base = androidx.compose.material3.MaterialTheme.typography.headlineSmall.copy(
+                fontSize = style.fontSizeSp.coerceAtMost(48f).sp,
+                fontWeight = if (style.bold) FontWeight.Bold else FontWeight.Normal,
+                fontStyle = if (style.italic) FontStyle.Italic else FontStyle.Normal,
+                textAlign = style.composeAlign(),
+                lineHeight = style.composeLineHeight(),
+                letterSpacing = style.composeTracking(),
+                textDecoration = style.composeDecoration(),
+            )
+            Box(contentAlignment = Alignment.Center) {
+                if (glow != null) {
+                    Text(
+                        ann,
+                        style = base.copy(
+                            color = glow.color,
+                            shadow = Shadow(glow.color, offset = androidx.compose.ui.geometry.Offset.Zero, blurRadius = glow.radius),
+                        ),
+                    )
+                }
+                if (stroke != null) {
+                    // Outline 8 arah agar terlihat seperti stroke beneran di preview kecil.
+                    val r = (stroke.widthPx / 6f).coerceIn(1f, 4f)
+                    listOf(
+                        -r to 0f, r to 0f, 0f to -r, 0f to r,
+                        -r to -r, r to r, -r to r, r to -r,
+                    ).forEach { (dx, dy) ->
+                        Text(
+                            ann,
+                            style = base.copy(
+                                color = stroke.color,
+                                shadow = Shadow(stroke.color, offset = androidx.compose.ui.geometry.Offset(dx, dy), blurRadius = 0.5f),
+                            ),
+                        )
+                    }
+                }
+                Text(
+                    ann,
+                    style = if (gradient != null && gradient.colors.size >= 2) {
+                        base.copy(
+                            brush = Brush.linearGradient(gradient.colors),
+                            shadow = shadow?.let { Shadow(it.color, offset = androidx.compose.ui.geometry.Offset(it.dx, it.dy), blurRadius = it.blur) },
+                        )
+                    } else {
+                        base.copy(
+                            color = style.color,
+                            shadow = shadow?.let { Shadow(it.color, offset = androidx.compose.ui.geometry.Offset(it.dx, it.dy), blurRadius = it.blur) },
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LabeledSlider(label: String, value: String, v: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    }
+    Slider(value = v, onValueChange = onChange, valueRange = range)
 }
 
 @Composable
 private fun Effect(title: String, on: Boolean, setOn: (Boolean) -> Unit, body: @Composable () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(top = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        Modifier.fillMaxWidth().padding(top = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
         Switch(checked = on, onCheckedChange = setOn)
     }
     if (on) body()
@@ -277,20 +360,21 @@ private fun Effect(title: String, on: Boolean, setOn: (Boolean) -> Unit, body: @
 @Composable
 private fun ColorRow(current: Color, onPick: (Color) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        (listOf(Color.Black, Color.White) + DefaultPalette).distinct().forEach { c ->
+        (listOf(Color.Black, Color.White) + DefaultPalette).distinctBy { it.toArgb() }.forEach { c ->
+            val sel = c.toArgb() == current.toArgb()
             Box(
-                Modifier.size(32.dp).clip(CircleShape)
+                Modifier.size(40.dp).clip(CircleShape)
                     .background(c)
                     .border(
-                        width = if (c.toArgb() == current.toArgb()) 3.dp else 1.dp,
-                        color = if (c.toArgb() == current.toArgb()) MaterialTheme.colorScheme.primary
+                        width = if (sel) 3.dp else 1.dp,
+                        color = if (sel) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.outline,
-                        shape = CircleShape
+                        shape = CircleShape,
                     )
-                    .clickable { onPick(c) }
+                    .clickable { onPick(c) },
             )
         }
     }

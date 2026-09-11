@@ -132,6 +132,17 @@ class EditorViewModel @Inject constructor(
     // ---- Layer ops (syarat: add/delete/duplicate/copy/clip/folder) ----
     fun addImageLayer() = commitLayers(_uiState.value.layers + LayerManager.addImage("Image ${_uiState.value.layers.size}"))
     fun addTextLayer() = commitLayers(_uiState.value.layers + LayerManager.addText("Text ${_uiState.value.layers.size}"))
+
+    /** TEXT tool tap: tambah teks tepat di posisi tap (normalisasi 0..1 → offset -0.45..0.45). */
+    fun addTextAt(nx: Float, ny: Float, content: String = "New text") {
+        val ox = (nx - 0.5f).coerceIn(-0.45f, 0.45f)
+        val oy = (ny - 0.5f).coerceIn(-0.45f, 0.45f)
+        val base = LayerManager.addText(content)
+        val placed = base.copy(offsetX = ox, offsetY = oy, name = content.take(16).ifBlank { "Text" })
+        commitLayers(_uiState.value.layers + placed)
+        setActive(placed.id)
+        toast("Teks ditambah — tap teks untuk pilih, seret dengan Move")
+    }
     fun addFolder() = commitLayers(_uiState.value.layers + LayerManager.addFolder())
     fun deleteActive() {
         val id = _uiState.value.activeLayerId ?: return
@@ -146,6 +157,20 @@ class EditorViewModel @Inject constructor(
     fun setOpacity(id: String, o: Float) = commitLayers(LayerManager.setOpacity(_uiState.value.layers, id, o))
     fun setClip(id: String, clip: Boolean) = commitLayers(LayerManager.setClip(_uiState.value.layers, id, clip))
     fun moveLayer(from: Int, to: Int) = commitLayers(LayerManager.move(_uiState.value.layers, from, to))
+
+    /** MOVE tool: geser layer aktif. Dipanggil dari drag (delta fraksi) — tanpa history spam:
+     *  commit tiap gesture-end via nudgeCommit. */
+    fun nudgeActiveLive(dx: Float, dy: Float) {
+        val id = _uiState.value.activeLayerId ?: return
+        _uiState.update {
+            it.copy(layers = LayerManager.nudgeOffset(it.layers, id, dx, dy))
+        }
+    }
+
+    fun nudgeActiveCommit() {
+        history.push(_uiState.value.layers)
+        _uiState.update { it.copy(canUndo = history.canUndo(), canRedo = history.canRedo()) }
+    }
 
     // ---- Text edit (TextEditorDialog) ----
     fun activeTextLayer(): Layer.Text? =

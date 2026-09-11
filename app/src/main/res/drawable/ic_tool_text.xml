@@ -2,12 +2,17 @@
     android:width="24dp" android:height="24dp"
     android:viewportWidth="24" android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">
-    <!-- TEXT — huruf T + baseline (generated vector, outline konsisten 1.8dp) -->
+    <!-- TEXT v2 — huruf T serif tebal solid + baseline + kursor. -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M4,4 H20 V6.8 H14.2 V17 H12.6 V17 H11.4 V17 H9.8 V6.8 H4 Z" />
     <path
         android:fillColor="#00000000"
         android:strokeColor="#000000"
-        android:strokeWidth="1.8"
+        android:strokeWidth="2"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M5,5 H19 M12,5 V19 M8,21 H16" />
+        android:pathData="M5,20.5 H19" />
+    <path
+        android:fillColor="#000000"
+        android:pathData="M18.2,14.5 h1.8 v5 h-1.8 Z" />
 </vector>

@@ -1,27 +1,52 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Skill: android-mobile-frontend-design — icon clean: bubble + V tegas + aksen brush.
-         Background solid di ic_launcher.xml (@color/ic_launcher_background #14141F).
-         Foreground aman di 72dp circle (adaptive safe-zone). -->
-    <!-- Speech bubble -->
+    <!-- VastypR icon v2 — premium: bubble putih ber-bayangan + V geometris tegas +
+         swipe brush violet + dot emas ber-ring. Aman di safe-zone 72dp. -->
+    <!-- Bayangan bubble (depth) -->
     <path
-        android:fillColor="#F6F6FA"
+        android:fillColor="#000000"
+        android:fillAlpha="0.35"
+        android:pathData="M55,25
+        C73,25 87,37 87,52.5
+        C87,65 77.5,75 64.5,79
+        L59.5,90 L56.5,79.5
+        C34.5,78.5 24,66.5 24,52.5
+        C24,37 37,25 55,25 Z" />
+    <!-- Bubble utama -->
+    <path
+        android:fillColor="#FFFFFF"
         android:pathData="M54,22
-        C72,22 86,34 86,50
-        C86,63 76,73 63,77
-        L58,88 L55,77
-        C32,76 22,64 22,50
+        C72,22 86,34 86,49.5
+        C86,62 76.5,72 63.5,76
+        L58.5,87 L55.5,76.5
+        C33.5,75.5 22,63.5 22,49.5
         C22,34 36,22 54,22 Z" />
-    <!-- V cutout (brand indigo) -->
+    <!-- Inner shading bawah bubble -->
     <path
-        android:fillColor="#5B5BF0"
-        android:pathData="M38,40 L48,64 L54,50 L60,64 L70,40 L64,40 L57,55 L54,48 L51,55 L44,40 Z" />
-    <!-- Brush accent dot (path arc — <circle> tidak valid di VectorDrawable) -->
+        android:fillColor="#D9D9E8"
+        android:pathData="M22,49.5 C22,63.5 33.5,75.5 55.5,76.5 L58.5,87 L60.5,81.5
+        C40,80.5 27,69 27,53.5 C27,42 34,32 45,27.5 C32.5,30.5 22,38.5 22,49.5 Z" />
+    <!-- V geometris tegas (indigo) -->
+    <path
+        android:fillColor="#3D3DBB"
+        android:pathData="M35,38 L48.5,66 L54,53.5 L59.5,66 L73,38 L66.5,38 L57.5,57.5 L54,49.5 L50.5,57.5 L41.5,38 Z" />
+    <!-- Highlight V (violet, separuh atas = kilau) -->
+    <path
+        android:fillColor="#7B7BFF"
+        android:pathData="M35,38 L41.5,38 L50.5,57.5 L48,61.5 L35,38 Z M73,38 L66.5,38 L57.5,57.5 L60,61.5 L73,38 Z" />
+    <!-- Brush swipe diagonal (violet) -->
     <path
         android:fillColor="#9D7BFF"
-        android:pathData="M68,68 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 Z" />
+        android:pathData="M62,70 L82,50 L86,54 L66,74 Z" />
+    <!-- Dot emas ber-ring putih -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,62 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0 Z" />
+    <path
+        android:fillColor="#FFB224"
+        android:pathData="M72.5,62 a6.5,6.5 0 1,0 13,0 a6.5,6.5 0 1,0 -13,0 Z" />
     <path
         android:fillColor="#14141F"
-        android:pathData="M71.6,68 a2.4,2.4 0 1,0 4.8,0 a2.4,2.4 0 1,0 -4.8,0 Z" />
+        android:pathData="M77.2,62 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 Z" />
 </vector>
