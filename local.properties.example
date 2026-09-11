@@ -1,10 +1,11 @@
 # contoh — copy ke local.properties (JANGAN commit yang asli)
 # sdk.dir=/Users/kamu/Library/Android/sdk
 
-# Bundle bubble detector ke APK saat build (salah satu, opsional):
+# Bundle bubble detector ke APK saat build (prioritas: PATH > URL > default):
 # - file lokal milikmu (disarankan: copy-an Manhwa-Translator/model/):
 # BUBBLE_MODEL_PATH=/lokal/Manhwa-Translator/model/comic-speech-bubble-detector.onnx
 # - atau URL file .onnx (diunduh saat build, mis. GitHub Release sendiri):
 # BUBBLE_MODEL_URL=https://github.com/USERNAME/REPO/releases/download/v1/bubble.onnx
-# Bila keduanya kosong → APK tanpa bundle (fallback file manual / Download tetap jalan).
+# - default (bila keduanya kosong): Google Drive milik user, otomatis diunduh
+#   + dibundle saat build. Link Drive harus publik "Anyone with the link".
 # Model lain (PP-OCR/MiGAN/LaMa) TIDAK dibundle — via Settings → Models di HP.

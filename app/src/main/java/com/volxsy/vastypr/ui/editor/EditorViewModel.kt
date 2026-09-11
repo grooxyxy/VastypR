@@ -83,7 +83,11 @@ class EditorViewModel @Inject constructor(
     @Named("sumopod") private val sumopod: TranslationProvider,
 ) : ViewModel() {
 
-    private val history = UndoRedoManager<List<Layer>>()
+    // Snapshot dokumen untuk undo/redo: layers + brush strokes (immutable, aman
+    // dipegang referensinya karena semua update copy-on-write).
+    private data class DocSnapshot(val layers: List<Layer>, val strokes: List<BrushStroke>)
+
+    private val history = UndoRedoManager<DocSnapshot>()
 
     private val _uiState = MutableStateFlow(
         EditorUiState(
@@ -106,9 +110,12 @@ class EditorViewModel @Inject constructor(
     private val _strokes = MutableStateFlow<List<BrushStroke>>(emptyList())
     val strokes: StateFlow<List<BrushStroke>> = _strokes.asStateFlow()
     private var currentStroke: BrushStroke? = null
+    private var strokeCountAtStart = 0
+
+    private fun snap() = DocSnapshot(_uiState.value.layers, _strokes.value)
 
     init {
-        history.reset(_uiState.value.layers)
+        history.reset(snap())
         viewModelScope.launch {
             fonts.refresh()
             prefs.textStyleJson().first()?.let { savedStyle = TextStyleJson.decode(it) }
@@ -116,9 +123,10 @@ class EditorViewModel @Inject constructor(
     }
 
     private fun commitLayers(next: List<Layer>) {
-        history.push(next)
+        _uiState.update { it.copy(layers = next) }
+        history.push(snap())
         _uiState.update {
-            it.copy(layers = next, canUndo = history.canUndo(), canRedo = history.canRedo())
+            it.copy(canUndo = history.canUndo(), canRedo = history.canRedo())
         }
     }
 
@@ -168,7 +176,7 @@ class EditorViewModel @Inject constructor(
     }
 
     fun nudgeActiveCommit() {
-        history.push(_uiState.value.layers)
+        history.push(snap())
         _uiState.update { it.copy(canUndo = history.canUndo(), canRedo = history.canRedo()) }
     }
 
@@ -203,18 +211,21 @@ class EditorViewModel @Inject constructor(
         viewModelScope.launch { _events.emit(EditorEvent.Message(fonts.delete(id))) }
     }
 
-    // ---- Undo/Redo ----
+    // ---- Undo/Redo (layers + brush strokes) ----
     fun undo() {
-        val prev = history.undo(_uiState.value.layers) ?: return
-        _uiState.update { it.copy(layers = prev, canUndo = history.canUndo(), canRedo = history.canRedo()) }
+        val prev = history.undo(snap()) ?: return
+        _strokes.value = prev.strokes
+        _uiState.update { it.copy(layers = prev.layers, canUndo = history.canUndo(), canRedo = history.canRedo()) }
     }
     fun redo() {
-        val next = history.redo(_uiState.value.layers) ?: return
-        _uiState.update { it.copy(layers = next, canUndo = history.canUndo(), canRedo = history.canRedo()) }
+        val next = history.redo(snap()) ?: return
+        _strokes.value = next.strokes
+        _uiState.update { it.copy(layers = next.layers, canUndo = history.canUndo(), canRedo = history.canRedo()) }
     }
 
-    // ---- Brush ----
+    // ---- Brush (1 sapuan = 1 langkah undo) ----
     fun brushStart(x: Float, y: Float) {
+        strokeCountAtStart = _strokes.value.size
         val s = _uiState.value
         currentStroke = BrushStroke(
             points = listOf(Offset(x, y)),
@@ -230,9 +241,21 @@ class EditorViewModel @Inject constructor(
             if (list.isEmpty()) listOf(running) else list.dropLast(1) + running
         }
     }
-    fun brushEnd() { currentStroke = null }
+    fun brushEnd() {
+        currentStroke = null
+        // Hanya dorong history bila sapuan ini menambah/memanjang stroke.
+        if (_strokes.value.size != strokeCountAtStart) {
+            history.push(snap())
+            _uiState.update { it.copy(canUndo = history.canUndo(), canRedo = history.canRedo()) }
+        }
+    }
 
-    fun clearStrokes() { _strokes.update { emptyList() } }
+    fun clearStrokes() {
+        if (_strokes.value.isEmpty()) return
+        _strokes.update { emptyList() }
+        history.push(snap())
+        _uiState.update { it.copy(canUndo = history.canUndo(), canRedo = history.canRedo()) }
+    }
 
     // ---- Canvas mapping (ContentScale.Fit, single source of truth) ----
     // Screen menggambar gambar sumber dengan Fit; semua gesture di-normalisasi
@@ -705,27 +728,46 @@ class EditorViewModel @Inject constructor(
         return runCatching { tall.decodeSampled(Uri.parse(uriStr), maxLongSide) }.getOrNull()
     }
 
-    // ---- Bubble detect (YOLOv8m comic-speech-bubble, tiling di dalam detector) ----
+    // ---- Bubble detect (YOLOv8m comic-speech-bubble) ----
+    // - Gambar biasa: 1 working bitmap 2400 + tiling 1200/300 di dalam detector.
+    // - Gambar TALL (tinggi >3000px, mis. 720x16000): decode per STRIP vertikal
+    //   di resolusi penuh via BitmapRegionDecoder (tanpa OOM) + overlap 200px,
+    //   deteksi per strip, lalu NMS global ternormalisasi. Sampling full-image
+    //   TIDAK dipakai di sini karena menghancurkan bubble kecil (720x16000 →
+    //   108x2400).
     fun detectBubbles() {
         if (_uiState.value.isBusy) return
         viewModelScope.launch {
             setBusy("Detect bubble…")
             try {
-                // Sisi 2400: cukup resolusi agar tiling 1200/300 aktif di gambar
-                // tinggi ( Tiruan core.py yang tile gambar asli; sampling 960
-                // menghancurkan bubble kecil). ~1MB RAM, aman.
-                val work = workingBitmap(2400) ?: return@launch
-                // Inferensi ORT di Default agar UI 60fps tidak drop (stabil).
-                val res = withContext(Dispatchers.Default) { detector.detect(work) }
-                val ww = res.width.toFloat()
-                val hh = res.height.toFloat()
-                val norm = res.bubbles.map { b ->
-                    Bubble(
-                        RectF(b.box.left / ww, b.box.top / hh, b.box.right / ww, b.box.bottom / hh),
-                        b.score,
-                    )
+                val uriStr = requireSource() ?: return@launch
+                val uri = Uri.parse(uriStr)
+                var fullW = _uiState.value.imageWidth
+                var fullH = _uiState.value.imageHeight
+                if (fullW <= 0 || fullH <= 0) {
+                    runCatching { tall.probe(uri) }.getOrNull()?.let {
+                        fullW = it.width; fullH = it.height
+                    }
                 }
-                if (!work.isRecycled) work.recycle()
+                val norm = if (fullW > 0 && fullH > TALL_STRIP_THRESHOLD_H) {
+                    detectTallStrips(uri, fullW, fullH)
+                } else {
+                    val work = workingBitmap(2400) ?: return@launch
+                    try {
+                        // Inferensi ORT di Default agar UI 60fps tidak drop (stabil).
+                        val res = withContext(Dispatchers.Default) { detector.detect(work) }
+                        val ww = res.width.toFloat()
+                        val hh = res.height.toFloat()
+                        res.bubbles.map { b ->
+                            Bubble(
+                                RectF(b.box.left / ww, b.box.top / hh, b.box.right / ww, b.box.bottom / hh),
+                                b.score,
+                            )
+                        }
+                    } finally {
+                        if (!work.isRecycled) work.recycle()
+                    }
+                }
                 _uiState.update { it.copy(bubbles = norm) }
                 _events.emit(EditorEvent.Message("Bubble: ${norm.size} terdeteksi"))
             } catch (e: Exception) {
@@ -734,6 +776,81 @@ class EditorViewModel @Inject constructor(
                 clearBusy()
             }
         }
+    }
+
+    /**
+     * Deteksi gambar tall strip-per-strip di resolusi penuh (lebar ≤1200px).
+     * Tiap strip: region-decode → YOLO (tiling internal 1200/300 tetap jalan) →
+     * petakan ke koordinat ternormalisasi full-image. NMS global di akhir
+     * menghapus duplikat area overlap.
+     */
+    private suspend fun detectTallStrips(uri: Uri, fullW: Int, fullH: Int): List<Bubble> {
+        // Sample power-of-2 agar lebar strip ≤1200px (720 → sample 1 = full-res).
+        var sample = 1
+        while (fullW / sample > 1200) sample *= 2
+        val stripH = 2000 * sample // px sumber per strip
+        val overlap = 200 * sample // px sumber overlap antar-strip
+        val found = mutableListOf<Pair<RectF, Float>>()
+        // Hitung jumlah strip dulu untuk progress determinat.
+        var total = 0
+        var ty = 0
+        while (ty < fullH) {
+            total++
+            val y1 = minOf(ty + stripH, fullH)
+            if (y1 >= fullH) break
+            ty = y1 - overlap
+        }
+        var y = 0
+        var idx = 0
+        while (y < fullH) {
+            idx++
+            val y1 = minOf(y + stripH, fullH)
+            setBusy("Detect bubble strip $idx/$total…", idx.toFloat() / total.coerceAtLeast(1))
+            val bmp = runCatching { tall.decodeRegion(uri, 0, y, fullW, y1, sample) }.getOrNull()
+            if (bmp != null) {
+                try {
+                    val res = withContext(Dispatchers.Default) { detector.detect(bmp) }
+                    val ww = res.width.toFloat()
+                    val hh = res.height.toFloat()
+                    val spanH = (y1 - y).toFloat()
+                    res.bubbles.forEach { b ->
+                        // Strip selebar full-image → fraksi x langsung; y via offset strip.
+                        val l = (b.box.left / ww).coerceIn(0f, 1f)
+                        val r = (b.box.right / ww).coerceIn(0f, 1f)
+                        val t = ((y + (b.box.top / hh) * spanH) / fullH).coerceIn(0f, 1f)
+                        val btm = ((y + (b.box.bottom / hh) * spanH) / fullH).coerceIn(0f, 1f)
+                        if (r > l && btm > t) found += RectF(l, t, r, btm) to b.score
+                    }
+                } finally {
+                    if (!bmp.isRecycled) bmp.recycle()
+                }
+            }
+            if (y1 >= fullH) break
+            y = y1 - overlap
+        }
+        return nmsNormalized(found, IOU_TALL_MERGE)
+    }
+
+    /** NMS global untuk box ternormalisasi (gabungan strip / tile). */
+    private fun nmsNormalized(boxes: List<Pair<RectF, Float>>, iouTh: Float): List<Bubble> {
+        if (boxes.isEmpty()) return emptyList()
+        val sorted = boxes.sortedByDescending { it.second }
+        val kept = mutableListOf<Pair<RectF, Float>>()
+        for (b in sorted) {
+            if (kept.none { iouRect(it.first, b.first) > iouTh }) kept += b
+        }
+        return kept.map { Bubble(it.first, it.second) }
+    }
+
+    private fun iouRect(a: RectF, b: RectF): Float {
+        val l = maxOf(a.left, b.left)
+        val t = maxOf(a.top, b.top)
+        val r = minOf(a.right, b.right)
+        val bo = minOf(a.bottom, b.bottom)
+        val inter = maxOf(0f, r - l) * maxOf(0f, bo - t)
+        if (inter <= 0f) return 0f
+        val union = a.width() * a.height() + b.width() * b.height() - inter
+        return if (union <= 0f) 0f else inter / union
     }
 
     // ---- OCR (ML Kit dulu; region = seleksi/lasso bila ada) ----
@@ -1057,5 +1174,12 @@ class EditorViewModel @Inject constructor(
             else -> telea
         }
         return backend to inpainter
+    }
+
+    companion object {
+        /** Tinggi sumber di atas ini memakai jalur strip tall (mis. 720x16000). */
+        const val TALL_STRIP_THRESHOLD_H = 3000
+        /** IoU untuk NMS gabungan antar-strip tall. */
+        const val IOU_TALL_MERGE = 0.45f
     }
 }

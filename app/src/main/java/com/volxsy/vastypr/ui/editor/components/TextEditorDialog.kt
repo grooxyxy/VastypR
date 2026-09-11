@@ -2,22 +2,32 @@ package com.volxsy.vastypr.ui.editor.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,8 +47,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.volxsy.vastypr.data.fonts.FontManager
 import com.volxsy.vastypr.editor.model.TextEffect
 import com.volxsy.vastypr.editor.model.VastAlign
@@ -52,12 +65,14 @@ import com.volxsy.vastypr.ui.components.FontPicker
 
 // Skill: android-compose-foundations + android-mobile-frontend-design
 // + android-state-management + android-local-persistence-datastore
-// REDESIGN v3 — Text editor ala Photoshop:
-// - Semua warna via WheelColorField global (wheel + alpha + hex), bukan palette.
-// - Stroke (outline) MODE GRADASI: Solid | Gradasi 2 warna.
-// - Shadow MODE GRADASI + offset X/Y ala Photoshop (dulu dx/dy terkunci).
-// - Efek BLUR baru (radius 0..25px; penuh di Android 12+, fallback halus di bawahnya).
-// - Preview WYSIWYG: glow → stroke → fill/gradient + shadow + blur, sama dgn canvas.
+// REDESIGN v4 — jauh lebih clean & anti-tumpuk:
+// - Dialog custom (bukan AlertDialog): HEADER sticky (judul + ringkasan + X),
+//   BODY scroll sendiri, FOOTER sticky (Save/Load | Batal/Selesai) — teks dan
+//   tombol TIDAK PERNAH berbagi ruang sehingga tak bisa tumpuk.
+// - Preview di-clip + tinggi dibatasi + scroll internal (teks besar tak meluber
+//   ke kartu bawah).
+// - Semua baris chip horizontal-scroll (layar sempit tak ada yang gepeng/tumpuk).
+// - Semua warna via color wheel; outline/shadow mode Solid/Gradasi; efek Blur.
 @Composable
 fun TextEditorDialog(
     initialContent: String,
@@ -176,137 +191,207 @@ fun TextEditorDialog(
     }
 
     val previewStyle = build()
+    val fontLabel = remember(fontId, fonts) {
+        fonts.firstOrNull { it.id == fontId }?.displayName ?: "System Default"
+    }
 
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Text", style = MaterialTheme.typography.titleLarge) },
-        text = {
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
-                PreviewCard(content.ifBlank { "Preview" }, previewStyle)
-                CardSection("Konten") {
-                    TextField(
-                        value = content, onValueChange = { content = it },
-                        label = { Text("Isi teks (\\n = baris baru, baris kosong = paragraf)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                    )
-                }
-                CardSection("Font") {
-                    FontPicker(
-                        fonts = fonts, selectedId = fontId,
-                        getTypeface = getTypeface,
-                        onSelect = { fontId = it },
-                        onImportClick = onImportFont,
-                        onDelete = onDeleteFont,
-                    )
-                    LabeledSlider("Ukuran", "${size.toInt()}sp", size, 12f..120f) { size = it }
-                    WheelColorField(current = color, onPick = { color = it }, label = "Warna teks")
-                }
-                CardSection("Paragraf & gaya") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        VastAlign.entries.forEach { a ->
-                            FilterChip(
-                                selected = align == a,
-                                onClick = { align = a },
-                                label = {
-                                    Text(
-                                        when (a) {
-                                            VastAlign.LEFT -> "Kiri"
-                                            VastAlign.CENTER -> "Tengah"
-                                            VastAlign.RIGHT -> "Kanan"
-                                            VastAlign.JUSTIFY -> "Rata"
-                                        },
-                                    )
-                                },
-                            )
-                        }
-                    }
-                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = bold, onClick = { bold = !bold }, label = { Text("Bold") })
-                        FilterChip(selected = italic, onClick = { italic = !italic }, label = { Text("Italic") })
-                        FilterChip(selected = caps, onClick = { caps = !caps }, label = { Text("AA") })
-                        FilterChip(selected = ul, onClick = { ul = !ul }, label = { Text("U̲") })
-                        FilterChip(selected = strike, onClick = { strike = !strike }, label = { Text("S̶") })
-                    }
-                }
-                CardSection("Tipografi") {
-                    LabeledSlider("Leading (jarak baris)", "${"%.2f".format(leading)}em", leading, 0.9f..2.5f) { leading = it }
-                    LabeledSlider("Tracking (jarak huruf)", "${"%.2f".format(tracking)}em", tracking, -0.1f..0.5f) { tracking = it }
-                    LabeledSlider("Word spacing", "${"%.2f".format(wordGap)}em", wordGap, 0f..1f) { wordGap = it }
-                    LabeledSlider("Paragraph spacing", "${"%.2f".format(paraGap)}em", paraGap, 0f..1.5f) { paraGap = it }
-                    Text(
-                        "Paragraph spacing = jeda ekstra tiap batas paragraf (baris kosong). Untuk teks 2 baris biasa cukup Leading.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                CardSection("Efek (ditumpuk)") {
-                    Effect("Outline (stroke)", strokeOn, { strokeOn = it }) {
-                        ModeChips(
-                            options = listOf("Solid", "Gradasi"),
-                            selected = if (strokeGradOn) 1 else 0,
-                            onPick = { strokeGradOn = it == 1 },
-                        )
-                        if (strokeGradOn) {
-                            WheelColorField(current = strokeGA, onPick = { strokeGA = it }, label = "Gradasi 1")
-                            WheelColorField(current = strokeGB, onPick = { strokeGB = it }, label = "Gradasi 2")
-                        } else {
-                            WheelColorField(current = strokeColor, onPick = { strokeColor = it }, label = "Warna outline")
-                        }
-                        LabeledSlider("Tebal", "${strokeW.toInt()}px", strokeW, 1f..24f) { strokeW = it }
-                    }
-                    Effect("Shadow", shadowOn, { shadowOn = it }) {
-                        ModeChips(
-                            options = listOf("Solid", "Gradasi"),
-                            selected = if (shadowGradOn) 1 else 0,
-                            onPick = { shadowGradOn = it == 1 },
-                        )
-                        if (shadowGradOn) {
-                            WheelColorField(current = shadowGA, onPick = { shadowGA = it }, label = "Gradasi 1")
-                            WheelColorField(current = shadowGB, onPick = { shadowGB = it }, label = "Gradasi 2")
-                        } else {
-                            WheelColorField(current = shadowColor, onPick = { shadowColor = it }, label = "Warna shadow")
-                        }
-                        LabeledSlider("Offset X", "${"%.1f".format(shadowDx)}", shadowDx, -24f..24f) { shadowDx = it }
-                        LabeledSlider("Offset Y", "${"%.1f".format(shadowDy)}", shadowDy, -24f..24f) { shadowDy = it }
-                        LabeledSlider("Blur", "${shadowBlur.toInt()}", shadowBlur, 0f..32f) { shadowBlur = it }
-                    }
-                    Effect("Outer Glow", glowOn, { glowOn = it }) {
-                        WheelColorField(current = glowColor, onPick = { glowColor = it }, label = "Warna glow")
-                        LabeledSlider("Radius", "${glowR.toInt()}", glowR, 4f..48f) { glowR = it }
-                    }
-                    Effect("Gradient Fill", gradOn, { gradOn = it }) {
-                        WheelColorField(current = gradA, onPick = { gradA = it }, label = "Warna 1")
-                        WheelColorField(current = gradB, onPick = { gradB = it }, label = "Warna 2")
-                    }
-                    Effect("Background", bgOn, { bgOn = it }) {
-                        WheelColorField(current = bgColor, onPick = { bgColor = it }, label = "Warna background")
-                    }
-                    Effect("Blur", blurOn, { blurOn = it }) {
-                        LabeledSlider("Radius", "${blurR.toInt()}px", blurR, 0f..25f) { blurR = it }
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            tonalElevation = 6.dp,
+            shadowElevation = 12.dp,
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.92f),
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                // ---- HEADER sticky ----
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Edit Text", style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "Blur penuh di Android 12+; di bawah itu tampil sedikit lebih lembut.",
+                            "$fontLabel • ${size.toInt()}sp • ${alignLabel(align)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Tutup")
+                    }
+                }
+                Divider()
+                // ---- BODY scroll sendiri ----
+                Column(
+                    Modifier.fillMaxWidth().weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PreviewCard(content.ifBlank { "Preview" }, previewStyle)
+                    CardSection("Konten") {
+                        TextField(
+                            value = content, onValueChange = { content = it },
+                            label = { Text("Isi teks (\\n = baris baru, baris kosong = paragraf)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            minLines = 2,
+                        )
+                    }
+                    CardSection("Font & ukuran") {
+                        FontPicker(
+                            fonts = fonts, selectedId = fontId,
+                            getTypeface = getTypeface,
+                            onSelect = { fontId = it },
+                            onImportClick = onImportFont,
+                            onDelete = onDeleteFont,
+                        )
+                        LabeledSlider("Ukuran", "${size.toInt()}sp", size, 12f..120f) { size = it }
+                        WheelColorField(current = color, onPick = { color = it }, label = "Warna teks")
+                    }
+                    CardSection("Paragraf & gaya") {
+                        ChipRow {
+                            VastAlign.entries.forEach { a ->
+                                FilterChip(
+                                    selected = align == a,
+                                    onClick = { align = a },
+                                    label = { Text(alignLabel(a)) },
+                                )
+                            }
+                        }
+                        ChipRow {
+                            FilterChip(selected = bold, onClick = { bold = !bold }, label = { Text("Bold") })
+                            FilterChip(selected = italic, onClick = { italic = !italic }, label = { Text("Italic") })
+                            FilterChip(selected = caps, onClick = { caps = !caps }, label = { Text("AA") })
+                            FilterChip(selected = ul, onClick = { ul = !ul }, label = { Text("U̲") })
+                            FilterChip(selected = strike, onClick = { strike = !strike }, label = { Text("S̶") })
+                        }
+                    }
+                    CardSection("Tipografi") {
+                        LabeledSlider("Leading (jarak baris)", "${"%.2f".format(leading)}em", leading, 0.9f..2.5f) { leading = it }
+                        LabeledSlider("Tracking (jarak huruf)", "${"%.2f".format(tracking)}em", tracking, -0.1f..0.5f) { tracking = it }
+                        LabeledSlider("Word spacing", "${"%.2f".format(wordGap)}em", wordGap, 0f..1f) { wordGap = it }
+                        LabeledSlider("Paragraph spacing", "${"%.2f".format(paraGap)}em", paraGap, 0f..1.5f) { paraGap = it }
+                        Text(
+                            "Paragraph spacing = jeda ekstra tiap batas paragraf (baris kosong). Untuk teks 2 baris biasa cukup Leading.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    CardSection("Efek (ditumpuk)") {
+                        Effect("Outline (stroke)", strokeOn, { strokeOn = it }) {
+                            ModeChips(
+                                options = listOf("Solid", "Gradasi"),
+                                selected = if (strokeGradOn) 1 else 0,
+                                onPick = { strokeGradOn = it == 1 },
+                            )
+                            if (strokeGradOn) {
+                                WheelColorField(current = strokeGA, onPick = { strokeGA = it }, label = "Gradasi 1")
+                                Spacer(Modifier.padding(top = 4.dp))
+                                WheelColorField(current = strokeGB, onPick = { strokeGB = it }, label = "Gradasi 2")
+                            } else {
+                                WheelColorField(current = strokeColor, onPick = { strokeColor = it }, label = "Warna outline")
+                            }
+                            LabeledSlider("Tebal", "${strokeW.toInt()}px", strokeW, 1f..24f) { strokeW = it }
+                        }
+                        Effect("Shadow", shadowOn, { shadowOn = it }) {
+                            ModeChips(
+                                options = listOf("Solid", "Gradasi"),
+                                selected = if (shadowGradOn) 1 else 0,
+                                onPick = { shadowGradOn = it == 1 },
+                            )
+                            if (shadowGradOn) {
+                                WheelColorField(current = shadowGA, onPick = { shadowGA = it }, label = "Gradasi 1")
+                                Spacer(Modifier.padding(top = 4.dp))
+                                WheelColorField(current = shadowGB, onPick = { shadowGB = it }, label = "Gradasi 2")
+                            } else {
+                                WheelColorField(current = shadowColor, onPick = { shadowColor = it }, label = "Warna shadow")
+                            }
+                            LabeledSlider("Offset X", "${"%.1f".format(shadowDx)}", shadowDx, -24f..24f) { shadowDx = it }
+                            LabeledSlider("Offset Y", "${"%.1f".format(shadowDy)}", shadowDy, -24f..24f) { shadowDy = it }
+                            LabeledSlider("Blur", "${shadowBlur.toInt()}", shadowBlur, 0f..32f) { shadowBlur = it }
+                        }
+                        Effect("Outer Glow", glowOn, { glowOn = it }) {
+                            WheelColorField(current = glowColor, onPick = { glowColor = it }, label = "Warna glow")
+                            LabeledSlider("Radius", "${glowR.toInt()}", glowR, 4f..48f) { glowR = it }
+                        }
+                        Effect("Gradient Fill", gradOn, { gradOn = it }) {
+                            WheelColorField(current = gradA, onPick = { gradA = it }, label = "Warna 1")
+                            Spacer(Modifier.padding(top = 4.dp))
+                            WheelColorField(current = gradB, onPick = { gradB = it }, label = "Warna 2")
+                        }
+                        Effect("Background", bgOn, { bgOn = it }) {
+                            WheelColorField(current = bgColor, onPick = { bgColor = it }, label = "Warna background")
+                        }
+                        Effect("Blur", blurOn, { blurOn = it }) {
+                            LabeledSlider("Radius", "${blurR.toInt()}px", blurR, 0f..25f) { blurR = it }
+                            Text(
+                                "Blur penuh di Android 12+; di bawah itu tampil sedikit lebih lembut.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilledTonalButton(onClick = { onSaveStyle(build()) }) { Text("Save style") }
-                    OutlinedButton(onClick = { onLoadStyle()?.let(::applyLoaded) }) { Text("Load style") }
+                // ---- FOOTER sticky: aksi tak pernah menumpuk konten ----
+                Divider()
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedButton(onClick = { onSaveStyle(build()) }, modifier = Modifier.weight(1f)) {
+                            Text("Save style", maxLines = 1)
+                        }
+                        OutlinedButton(
+                            onClick = { onLoadStyle()?.let(::applyLoaded) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text("Load style", maxLines = 1)
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = onDismiss) { Text("Batal") }
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = { onDone(content.ifBlank { "Text" }, build()) }) {
+                            Text("Selesai")
+                        }
+                    }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onDone(content.ifBlank { "Text" }, build()) }) { Text("Selesai") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
-    )
+        }
+    }
+}
+
+private fun alignLabel(a: VastAlign): String = when (a) {
+    VastAlign.LEFT -> "Kiri"
+    VastAlign.CENTER -> "Tengah"
+    VastAlign.RIGHT -> "Kanan"
+    VastAlign.JUSTIFY -> "Rata"
+}
+
+/** Baris chip yang bisa di-scroll horizontal — anti-gepeng/tumpuk di layar sempit. */
+@Composable
+private fun ChipRow(content: @Composable () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        content()
+    }
 }
 
 @Composable
 private fun ModeChips(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+    ChipRow {
         options.forEachIndexed { i, label ->
             FilterChip(selected = selected == i, onClick = { onPick(i) }, label = { Text(label) })
         }
@@ -315,10 +400,10 @@ private fun ModeChips(options: List<String>, selected: Int, onPick: (Int) -> Uni
 
 @Composable
 private fun CardSection(title: String, body: @Composable () -> Unit) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-            Box(Modifier.padding(top = 8.dp)) { body() }
+            body()
         }
     }
 }
@@ -335,10 +420,13 @@ private fun PreviewCard(text: String, style: VastTextStyle) {
     val glow = style.effects.filterIsInstance<TextEffect.OuterGlow>().firstOrNull()
     val gradient = style.effects.filterIsInstance<TextEffect.GradientFill>().firstOrNull()
     val blur = style.effects.filterIsInstance<TextEffect.Blur>().firstOrNull()
+    // Clip + batas tinggi + scroll internal: teks besar tak meluber ke kartu bawah.
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+        Modifier.fillMaxWidth().heightIn(max = 240.dp)
+            .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .verticalScroll(rememberScrollState())
             .padding(14.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -394,8 +482,6 @@ private fun PreviewCard(text: String, style: VastTextStyle) {
                 }
                 val shGrad = shadow?.gradient?.takeIf { it.size >= 2 }
                 if (shGrad != null && shadow != null) {
-                    // Shadow gradasi: salinan di posisi sama (tertutup teks utama),
-                    // hanya bayangan blur-nya yang mengintip di offset.
                     Text(
                         ann,
                         style = base.copy(
@@ -429,7 +515,6 @@ private fun PreviewCard(text: String, style: VastTextStyle) {
 
 private fun shadowStyleOf(shadow: TextEffect.DropShadow?): Shadow? {
     if (shadow == null) return null
-    // Gradasi ditangani salinan terpisah oleh pemanggil; di sini hanya solid.
     return Shadow(
         shadow.color,
         offset = androidx.compose.ui.geometry.Offset(shadow.dx, shadow.dy),
@@ -439,24 +524,29 @@ private fun shadowStyleOf(shadow: TextEffect.DropShadow?): Shadow? {
 
 @Composable
 private fun LabeledSlider(label: String, value: String, v: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(value = v, onValueChange = onChange, valueRange = range)
     }
-    Slider(value = v, onValueChange = onChange, valueRange = range)
 }
 
 @Composable
 private fun Effect(title: String, on: Boolean, setOn: (Boolean) -> Unit, body: @Composable () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(top = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
-        Switch(checked = on, onCheckedChange = setOn)
+    Column(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            Switch(checked = on, onCheckedChange = setOn)
+        }
+        if (on) {
+            Column(
+                Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                body()
+            }
+        }
     }
-    if (on) body()
 }

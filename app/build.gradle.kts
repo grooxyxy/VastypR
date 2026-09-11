@@ -4,6 +4,7 @@
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.HttpURLConnection
 import java.net.URI
 plugins {
     alias(libs.plugins.android.application)
@@ -63,23 +64,29 @@ android {
 
     // ---- Model bundle (khusus bubble detector — lainnya TIDAK dibundle) ----
     // Task bundleBubbleModel menyalin file .onnx bubble ke src/main/assets/models/
-    // SEBELUM build, dari salah satu sumber (prioritas: path lokal > URL):
-    //  -BUBBLE_MODEL_PATH=/lokal/Manhwa-Translator/model/comic-speech-bubble-detector.onnx
-    //  -BUBBLE_MODEL_URL=https://.../comic-speech-bubble-detector.onnx (diunduh CI)
-    // Bila keduanya kosong → build lanjut TANPA bundle (detektor fallback file
-    // manual di filesDir/models atau tombol Download di Settings → Models).
+    // SEBELUM build, dari salah satu sumber (prioritas: path lokal > URL > default):
+    //  -BUBBLE_MODEL_PATH=/lokal/model.onnx (atau env BUBBLE_MODEL_PATH)
+    //  -BUBBLE_MODEL_URL=https://.../model.onnx (atau env/secret BUBBLE_MODEL_URL)
+    //  - default: Google Drive milik user (link yang diberikan user, publik
+    //    "Anyone with the link"):
+    //    https://drive.google.com/file/d/13B42NV0mPPBzUUVsIvD4SvE3QXEaLOlv/view
+    // Unduhan Drive memakai confirm-token + cookie (file ~99MB selalu kena
+    // halaman peringatan virus-scan bila direct-download polos).
+    // Hasil + verifikasi ukuran (>50MB) → APK langsung bisa deteksi bubble.
     // File hasil TIDAK di-commit (.gitignore: /app/src/main/assets/models/).
+    val driveDefaultUrl =
+        "https://drive.google.com/uc?export=download&id=13B42NV0mPPBzUUVsIvD4SvE3QXEaLOlv"
     val bubbleModelPath: String =
         (project.findProperty("BUBBLE_MODEL_PATH") as String?)
             ?: System.getenv("BUBBLE_MODEL_PATH") ?: ""
     val bubbleModelUrl: String =
         (project.findProperty("BUBBLE_MODEL_URL") as String?)
-            ?: System.getenv("BUBBLE_MODEL_URL") ?: ""
+            ?: System.getenv("BUBBLE_MODEL_URL") ?: driveDefaultUrl
     val bubbleAsset = layout.projectDirectory.file(
         "src/main/assets/models/comic-speech-bubble-detector.onnx"
     )
     tasks.register("bundleBubbleModel") {
-        description = "Sediakan bubble .onnx di assets (path lokal atau URL, opsional)."
+        description = "Sediakan bubble .onnx di assets (path lokal, URL, atau Drive default)."
         onlyIf { !bubbleAsset.asFile.exists() || bubbleAsset.asFile.length() == 0L }
         doLast {
             bubbleAsset.asFile.parentFile?.mkdirs()
@@ -90,19 +97,19 @@ android {
                 }
                 src.copyTo(bubbleAsset.asFile, overwrite = true)
                 println("bundleBubbleModel: disalin dari $bubbleModelPath")
-            } else if (bubbleModelUrl.isNotBlank()) {
-                println("bundleBubbleModel: mengunduh (build-time, atas konfigurasi user) ...")
-                URI(bubbleModelUrl).toURL().openStream().use { ins: InputStream ->
-                    bubbleAsset.asFile.outputStream().use { outs: OutputStream -> ins.copyTo(outs) }
-                }
-                println("bundleBubbleModel: selesai dari URL")
             } else {
-                println("bundleBubbleModel: dilewati (tanpa PATH/URL) — APK tanpa bundle bubble")
+                println("bundleBubbleModel: mengunduh model bubble (~99MB, sekali per mesin CI) ...")
+                downloadModelFile(bubbleModelUrl, bubbleAsset.asFile)
+                val sz = bubbleAsset.asFile.length()
+                require(sz > 50L * 1024 * 1024) {
+                    "Unduhan mencurigakan (${sz} byte). " +
+                        "Pastikan link Drive publik 'Anyone with the link' dan ID benar."
+                }
+                println("bundleBubbleModel: OK ${sz / 1024 / 1024}MB → bundled ke APK")
             }
         }
     }
     tasks.findByName("preBuild")?.dependsOn("bundleBubbleModel")
-
     packaging {
         resources {
             excludes += setOf(
@@ -112,6 +119,71 @@ android {
             // ONNX / OpenCV native .so harus 16KB-aligned untuk targetSdk 35+ nanti.
             // Lihat skill android-modernization-upgrade saat naik targetSdk.
         }
+    }
+}
+
+// Unduh file model dengan dukungan Google Drive besar (>25MB selalu kena
+// halaman confirm virus-scan): ikuti redirect manual + cookie, lalu bila
+// respons HTML cari token confirm dan ulangi dengan token tersebut.
+// Murni java.net — tanpa dep baru. Dipakai bundleBubbleModel (build-time CI).
+fun downloadModelFile(urlStr: String, dest: File) {
+    var url = urlStr
+    val cookies = LinkedHashMap<String, String>()
+    var attempt = 0
+    while (true) {
+        attempt++
+        require(attempt <= 6) { "Terlalu banyak redirect/confirm saat mengunduh model" }
+        val conn = URI(url).toURL().openConnection() as HttpURLConnection
+        conn.instanceFollowRedirects = false
+        conn.connectTimeout = 30000
+        conn.readTimeout = 300000
+        conn.setRequestProperty(
+            "User-Agent",
+            "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36",
+        )
+        if (cookies.isNotEmpty()) {
+            conn.setRequestProperty(
+                "Cookie", cookies.entries.joinToString("; ") { "${it.key}=${it.value}" }
+            )
+        }
+        val code = conn.responseCode
+        conn.headerFields["Set-Cookie"]?.forEach { sc ->
+            val kv = sc.substringBefore(";")
+            if ("=" in kv) cookies[kv.substringBefore("=")] = kv.substringAfter("=")
+        }
+        if (code in 300..399) {
+            val loc = conn.getHeaderField("Location")
+                ?: throw org.gradle.api.GradleException("Redirect tanpa Location dari $url")
+            url = if (loc.startsWith("http")) loc else URI(url).resolve(loc).toString()
+            conn.disconnect()
+            continue
+        }
+        if (code != HttpURLConnection.HTTP_OK) {
+            conn.disconnect()
+            throw org.gradle.api.GradleException("HTTP $code saat mengunduh model dari $url")
+        }
+        val ctype = (conn.contentType ?: "").lowercase()
+        if (ctype.contains("text/html")) {
+            val html = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            val token = Regex("[?&]confirm=([0-9A-Za-z_-]+)").find(html)
+                ?.groupValues?.getOrNull(1)
+                ?: Regex("confirm\\\\u003d([0-9A-Za-z_-]+)").find(html)
+                    ?.groupValues?.getOrNull(1)
+            if (token != null && "confirm=" !in url) {
+                url = url + (if ("?" in url) "&" else "?") + "confirm=$token"
+                continue
+            }
+            throw org.gradle.api.GradleException(
+                "Drive mengembalikan halaman HTML, bukan file. " +
+                    "Pastikan link publik 'Anyone with the link' dan ID file benar."
+            )
+        }
+        conn.inputStream.use { ins ->
+            dest.outputStream().use { outs -> ins.copyTo(outs) }
+        }
+        conn.disconnect()
+        return
     }
 }
 

@@ -77,13 +77,19 @@ Tidak perlu install Android Studio untuk build pertama. Kalau mau edit code, pak
 ## Model: bubble dibundle, lainnya download manual (tanpa bundle ke APK)
 
 **Bubble detector DIBUNDLE di APK saat build** — file `.onnx` TIDAK di-commit
-(99MB melebihi batas GitHub). Caranya (salah satu, opsional):
+(99MB melebihi batas GitHub). Sumber model (prioritas: path lokal > URL > default):
 
-- File lokal (disarankan): `gradle :app:assembleDebug -PBUBBLE_MODEL_PATH=/lokal/Manhwa-Translator/model/comic-speech-bubble-detector.onnx`
-- URL (diunduh saat build oleh CI): isi secret `BUBBLE_MODEL_URL` di repo GitHub,
+- Default otomatis: Google Drive milik user (link yang diberikan user, harus
+  publik "Anyone with the link") — diunduh + dibundle saat build tanpa setting
+  apa pun. Unduhan Drive memakai confirm-token + cookie (lihat
+  `downloadModelFile` di `app/build.gradle.kts`).
+- File lokal: `gradle :app:assembleDebug -PBUBBLE_MODEL_PATH=/lokal/Manhwa-Translator/model/comic-speech-bubble-detector.onnx`
+- URL lain (mis. GitHub Release): secret `BUBBLE_MODEL_URL` di repo GitHub,
   atau `-PBUBBLE_MODEL_URL=https://.../bubble.onnx`. Lihat `local.properties.example`.
-- Bila keduanya kosong → APK tanpa bundle; detektor fallback ke file manual /
-  tombol Download seperti model lain (tidak crash, ada pesan jelas).
+
+Deteksi gambar tall (720x16000+): decode per strip vertikal 2000px (+overlap
+200px) di resolusi penuh via `BitmapRegionDecoder` + tiling YOLO 1200/300 per
+strip + NMS global — tanpa OOM, bubble kecil tidak hancur.
 
 **Model lain TIDAK dibundle** — download MANUAL eksplisit per tombol di
 **Settings → Models** (atau copy file via Device Explorer ke
@@ -92,7 +98,7 @@ bisa diganti link GitHub Release sendiri:
 
 | Model di VastypR | Tautan default resmi | Dipakai |
 |---|---|---|
-| `comic-speech-bubble-detector.onnx` (~99MB, **bundled**) | — (dari file/URL milikmu saat build) | Bubble YOLO + Clean (wajib) |
+| `comic-speech-bubble-detector.onnx` (~99MB, **bundled**) | Google Drive user (default, otomatis saat build) | Bubble YOLO + Clean, strip-tiling 720x16000+ |
 | `PP-OCRv6_small_det.onnx` (~10MB) | `huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/main/inference.onnx` (Apache-2.0) | Mask teks otomatis (tanpa seleksi) |
 | `migan_lxfater.onnx` (~30MB) | `huggingface.co/lxfater/inpaint-web/resolve/main/migan.onnx` (GPL-3.0) | Backend MiGAN (gagal → fallback Telea) |
 | `lama_fp32.onnx` (~207MB) | `huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx` (Apache-2.0, varian fp32) | Backend LaMa (kualitas terbaik) |
