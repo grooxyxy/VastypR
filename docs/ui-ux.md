@@ -1,14 +1,15 @@
-# VastypR UI/UX — rev2 fluid & stabil (tanpa build)
+# VastypR UI/UX — rev3 clip + wheel + efek pro (tanpa build)
 
 Skill: `android-mobile-frontend-design` (create mode) + `android-material3-design-system`.
 Postur: **confident utility**, dark-first (#14141F) agar mata nyaman edit gambar tall.
 File mockup SVG (buka di browser / Acode preview):
 - `docs/mockup-home.svg` — Home rev2 (thumbnail + delete + 2 import)
-- `docs/mockup-editor.svg` — Editor rev2 (LazyRow + Clean + progress + solid canvas)
+- `docs/mockup-editor.svg` — Editor rev3 (clip rails + zoom ctrl + seleksi premium + wheel)
 - `docs/mockup-settings.svg` — Settings rev2 (3 kartu sectioned)
 
-Prinsip rev2: **fluid = 60fps saat scroll/gambar; stabil = tak ada job ganda, tak ada OOM.**
-Tanpa download model/dependencies oleh saya. Tanpa dep baru.
+Prinsip rev3: **fluid = 60fps saat scroll/gambar; stabil = tak ada job ganda, tak ada OOM.**
+Tanpa download model/dependencies oleh saya. Tanpa dep baru
+(wheel + gradasi + blur murni Compose/Canvas bawaan).
 
 ## 0. Apa yang berubah dari rev1 (dan kenapa)
 
@@ -99,17 +100,64 @@ Tanpa download model/dependencies oleh saya. Tanpa dep baru.
 └─────────────────────────┘
 ```
 
-## 5. Text editor — ala Photoshop Character/Paragraph (rev3)
+## 4. Editor rev3 — clip + zoom ctrl + wheel + efek pro
+
+| Masalah | Perbaikan rev3 | File |
+|---|---|---|
+| Canvas zoom menutupi rails atas | Rails `Surface + zIndex(2f)`, canvas `graphicsLayer(clip=true)` | `EditorScreen.kt`, `ToolRail.kt` |
+| Seret keset | PAN hanya canvas (MOVE = geser layer via `nudgeActiveLive/Commit`), zoom 0.5–5x + clamp + tombol +/−/reset + badge `%` | `EditorScreen.kt`, `LayerManager.nudgeOffset()` |
+| Teks tak muncul | Overlay Box terpusat + offset fraksi, tap-to-select, auto-shadow, stroke 8-arah; TEXT tap = tambah di titik | `EditorScreen.kt` |
+| Palette-only membosankan | `VastColorWheel` global (hue ring + SV + alpha + hex) via `WheelColorField` di brush + semua warna teks/efek | `ColorWheel.kt`, `ColorPanel.kt`, `TextEditorDialog.kt` |
+| Outline/shadow hanya solid | Mode Solid/Gradasi 2 warna di `Stroke.gradient` + `DropShadow.gradient` (+ offset X/Y shadow dibuka) | `TextStyle.kt`, `TextStyleJson.kt`, render 3 jalur |
+| Tanpa blur | `TextEffect.Blur` 0–25px (RenderEffect API 31+, fallback halus; export via BlurMaskFilter) | `TextStyle.kt`, `TextEditorDialog.kt`, `EditorScreen.kt`, `EditorViewModel.kt` |
+| Seleksi murahan | Dim luar + double-border + handle + grid thirds crop + glow lasso + info bar | `EditorScreen.kt` |
+| Panel tak berguna | Tab Layers / Brush & Warna, peek 112dp, max 430dp | `EditorScreen.kt`, `LayerSheet.kt` |
+
+```
+┌──────────────────────────────────┐
+│[<] Solo_Leveling_Ch12  [↩][↪][⇪] │ TopBar ramping
+├──────────────────────────────────┤
+│CANVAS TOOLS                      │ label seksi (Surface, zIndex 2)
+│[Pan][Move][Sel][Lasso][Brush]…   │ chip premium 20dp
+│AI TOOLS                          │
+│[Bubble][OCR][Inpaint][Clean(3)]  │ badge count
+├──────────────────────────────────┤
+│┌────────────────────────────────┐│
+││100% • seret/zoom canvas        ││ badge (tak ikut zoom)
+││   ╭─────────╮                  ││ bubble double-border
+││   │ "Jangan │ ← border seleksi ││ text tap-to-select
+││   │ pergi!" │                  ││
+││   ╰ - - - - ╯  ○ handle       ││ select dashed + dim
+││                         [+]    ││ zoom ctrl (tak ikut zoom)
+││                         [−]    ││
+│└────────────────────────────────┘│ clip: tak menutup rails
+│[Brush|Eraser] [Edit text]        │
+│Select aktif • 1 bubble           │ info bar
+├──────────────────────────────────┤
+│ ═══ BottomSheet peek 112dp ═══   │ max 430dp
+│ [Layers (3)] [Brush & Warna]     │ tab berguna
+│ ✎ Title — Teks — 100%  [👁]      │ baris tipe+opacity
+│ Wheel: ◉ hue+SV + Alpha + Hex    │ color wheel global
+└──────────────────────────────────┘
+```
+
+## 5. Text editor — ala Photoshop Character/Paragraph (rev3 + wheel + blur)
 
 Dialog **Edit Text**: konten (`\n` = baris, baris kosong = paragraf) → Font →
-Ukuran → Warna → Paragraf (Kiri/Tengah/Kanan/Rata) → Leading (jarak baris,
+Ukuran → Warna (wheel) → Paragraf (Kiri/Tengah/Kanan/Rata) → Leading (jarak baris,
 untuk teks 2 baris ke atas) → Tracking (jarak huruf) → Word spacing (jarak kata)
 → Paragraph spacing (jeda tiap paragraf) → Bold/Italic/Caps/U/S →
-5 efek (Stroke/Shadow/Glow/Gradient/Background) → Save/Load style.
+6 efek (Outline + Shadow + Glow + Gradient + Background + Blur) → Save/Load style.
+
+- Outline & Shadow punya MODE Solid/Gradasi 2 warna; Shadow offset X/Y dibuka
+  (dulu terkunci 0/4), blur 0–32.
+- Blur 0–25px (penuh Android 12+, fallback halus di bawahnya).
+- Semua warna via color wheel (hue ring + SV + alpha + hex + preset).
 
 Render seragam di 3 jalur: preview dialog, canvas (`StackedText` berlapis +
 kolom paragraf), font custom (`TextView`: justification + `ScaleXSpan` word-gap;
-paragraph-spacing fallback ke leading), export (`Paint` per-kata + justify penuh).
+paragraph-spacing fallback ke leading; outline/gradasi/blur selalu via Compose),
+export (`Paint` per-kata + justify penuh + stroke/shadow/gradient/blur/bg).
 
 ## 6. Alur (user journey, rev2)
 Import (Picker/SAF → Room via `ImportManager`) → Home card (thumbnail) → Editor

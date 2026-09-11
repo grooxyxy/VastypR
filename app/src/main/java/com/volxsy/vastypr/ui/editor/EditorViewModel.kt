@@ -426,14 +426,21 @@ class EditorViewModel @Inject constructor(
         // 2. Brush strokes (canvas px -> normalisasi -> export px).
         drawStrokes(canvas, s, w, h)
 
-        // 3. Text layers (tipografi Photoshop: leading/tracking/word/paragraph/align).
+        // 3. Text layers (tipografi Photoshop + efek: stroke/gradient/shadow/blur/bg).
         var y = h * 0.12f
         s.layers.filterIsInstance<Layer.Text>().filter { it.visible }.forEach { t ->
             val st = t.style
             val shown = if (st.allCaps) t.content.uppercase() else t.content
+            val stroke = st.effects.filterIsInstance<com.volxsy.vastypr.editor.model.TextEffect.Stroke>().firstOrNull()
+            val shadowFx = st.effects.filterIsInstance<com.volxsy.vastypr.editor.model.TextEffect.DropShadow>().firstOrNull()
+            val gradFill = st.effects.filterIsInstance<com.volxsy.vastypr.editor.model.TextEffect.GradientFill>()
+                .firstOrNull()?.takeIf { it.colors.size >= 2 }
+            val blurFx = st.effects.filterIsInstance<com.volxsy.vastypr.editor.model.TextEffect.Blur>().firstOrNull()
+            val bgFx = st.effects.filterIsInstance<com.volxsy.vastypr.editor.model.TextEffect.Background>().firstOrNull()
+            val layerAlpha = (t.opacity.coerceIn(0f, 1f) * 255).toInt()
             val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = st.color.toArgb()
-                alpha = (t.opacity.coerceIn(0f, 1f) * 255).toInt()
+                alpha = layerAlpha
                 textSize = st.fontSizeSp * 3f
                 textAlign = Paint.Align.LEFT // x dihitung manual per align
                 letterSpacing = st.letterSpacingEm
@@ -447,6 +454,19 @@ class EditorViewModel @Inject constructor(
                         else -> Typeface.NORMAL
                     }
                     typeface = Typeface.create(tf, tfStyle)
+                }
+                // Shadow solid / gradasi (gradasi diwakili warna pertama).
+                val shCol = shadowFx?.gradient?.firstOrNull() ?: shadowFx?.color
+                if (shadowFx != null && shCol != null) {
+                    val k = textSize / 28f
+                    setShadowLayer(shadowFx.blur * k, shadowFx.dx * k, shadowFx.dy * k, shCol.toArgb())
+                }
+                // Blur lembut ala Photoshop.
+                if (blurFx != null) {
+                    maskFilter = android.graphics.BlurMaskFilter(
+                        blurFx.radius * (textSize / 28f),
+                        android.graphics.BlurMaskFilter.Blur.NORMAL,
+                    )
                 }
             }
             val anchorX = w * (0.5f + t.offsetX)
@@ -467,15 +487,18 @@ class EditorViewModel @Inject constructor(
             val paras = shown.split("\n\n")
             val maxLineW = paras.flatMap { it.split("\n") }
                 .maxOfOrNull { measureLine(it).totalW } ?: 0f
+            // Kumpulkan baris dulu agar background bisa digambar di belakang teks.
+            data class Placed(val words: List<String>, val xs: List<Float>, val baseline: Float)
+            val placed = mutableListOf<Placed>()
+            var bl = baseline
             paras.forEachIndexed { pi, para ->
-                if (pi > 0) baseline += paraExtra
+                if (pi > 0) bl += paraExtra
                 para.split("\n").forEachIndexed { li, rawLine ->
-                    baseline += lineH
-                    if (baseline >= h * 0.99f) return@forEachIndexed
+                    bl += lineH
+                    if (bl >= h * 0.99f) return@forEachIndexed
                     val ln = measureLine(rawLine)
                     if (ln.words.isEmpty()) return@forEachIndexed
                     val isLast = li == para.split("\n").lastIndex
-                    // Gap per spasi (justify: regangkan agar penuh maxLineW).
                     val gaps = ln.words.size - 1
                     val gap = when {
                         st.align == com.volxsy.vastypr.editor.model.VastAlign.JUSTIFY &&
@@ -493,11 +516,70 @@ class EditorViewModel @Inject constructor(
                         com.volxsy.vastypr.editor.model.VastAlign.JUSTIFY -> anchorX - maxLineW / 2f
                         else -> anchorX - drawW / 2f // CENTER: pusatkan tiap baris
                     }
+                    val xs = mutableListOf<Float>()
                     ln.words.forEachIndexed { wi, word ->
-                        canvas.drawText(word, x, baseline, paint)
+                        xs += x
                         x += paint.measureText(word) + if (wi < gaps) gap else 0f
                     }
+                    placed += Placed(ln.words, xs, bl)
                 }
+            }
+            // Background di belakang seluruh blok teks.
+            if (bgFx != null && placed.isNotEmpty()) {
+                val pad = paint.textSize * 0.35f
+                val l = (anchorX - maxLineW / 2f - pad).coerceAtLeast(0f)
+                val r = (anchorX + maxLineW / 2f + pad).coerceAtMost(w.toFloat())
+                val top = (placed.first().baseline + paint.ascent() - pad * 0.4f).coerceAtLeast(0f)
+                val bottom = (placed.last().baseline + paint.descent() + pad * 0.4f)
+                    .coerceAtMost(h.toFloat())
+                val bgp = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = bgFx.color.toArgb()
+                    alpha = layerAlpha
+                }
+                canvas.drawRoundRect(
+                    android.graphics.RectF(l, top, r, bottom),
+                    bgFx.cornerPx * (paint.textSize / 28f),
+                    bgFx.cornerPx * (paint.textSize / 28f),
+                    bgp,
+                )
+            }
+            // Paint outline (solid / gradasi horizontal selebar blok).
+            val strokePaint = stroke?.let { se ->
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    style = Paint.Style.STROKE
+                    strokeJoin = Paint.Join.ROUND
+                    alpha = layerAlpha
+                    textSize = paint.textSize
+                    textAlign = Paint.Align.LEFT
+                    letterSpacing = st.letterSpacingEm
+                    typeface = paint.typeface
+                    strokeWidth = (se.widthPx * (paint.textSize / 28f)).coerceAtLeast(1f)
+                    val g = se.gradient?.takeIf { it.size >= 2 }
+                    if (g != null) {
+                        shader = android.graphics.LinearGradient(
+                            anchorX - maxLineW / 2f, 0f, anchorX + maxLineW / 2f, 0f,
+                            g[0].toArgb(), g[1].toArgb(),
+                            android.graphics.Shader.TileMode.CLAMP,
+                        )
+                    } else {
+                        color = se.color.toArgb()
+                    }
+                }
+            }
+            // Gradient fill untuk teks utama.
+            if (gradFill != null) {
+                paint.shader = android.graphics.LinearGradient(
+                    anchorX - maxLineW / 2f, 0f, anchorX + maxLineW / 2f, 0f,
+                    gradFill.colors[0].toArgb(), gradFill.colors[1].toArgb(),
+                    android.graphics.Shader.TileMode.CLAMP,
+                )
+            }
+            placed.forEach { p ->
+                p.words.forEachIndexed { wi, word ->
+                    if (strokePaint != null) canvas.drawText(word, p.xs[wi], p.baseline, strokePaint)
+                    canvas.drawText(word, p.xs[wi], p.baseline, paint)
+                }
+                baseline = p.baseline
             }
             y = baseline + paint.textSize * 0.6f
             if (y > h * 0.99f) return@forEach

@@ -97,6 +97,7 @@ import com.volxsy.vastypr.ui.editor.components.LayerSheet
 import com.volxsy.vastypr.ui.editor.components.TextEditorDialog
 import com.volxsy.vastypr.ui.editor.components.ToolRail
 import com.volxsy.vastypr.ui.editor.components.TranslateDialog
+import com.volxsy.vastypr.ui.editor.components.blurCompat
 import kotlin.math.roundToInt
 
 // Skill: android-compose-foundations + android-compose-state-effects
@@ -802,9 +803,14 @@ private fun TextOverlayBox(
 @Composable
 private fun LayerText(layer: Layer.Text, typeface: android.graphics.Typeface?, isActive: Boolean = false) {
     val style = layer.style
-    val hasComplex = style.effects.any {
-        it is TextEffect.Stroke || it is TextEffect.GradientFill || it is TextEffect.OuterGlow
-    }
+    // Jalur TextView hanya untuk efek sederhana (tanpa outline/gradient/glow/blur).
+    // Outline/gradient/shadow-gradasi/blur butuh overlay Compose (StackedText).
+    val stroke = style.effects.filterIsInstance<TextEffect.Stroke>().firstOrNull()
+    val hasComplex = stroke != null ||
+        style.effects.any {
+            it is TextEffect.GradientFill || it is TextEffect.OuterGlow ||
+                it is TextEffect.Blur || (it is TextEffect.DropShadow && it.gradient != null)
+        }
     if (typeface != null && !hasComplex) {
         val bg = style.effects.filterIsInstance<TextEffect.Background>().firstOrNull()
         val shadow = style.effects.filterIsInstance<TextEffect.DropShadow>().firstOrNull()
@@ -915,8 +921,11 @@ private fun StackedText(
     val stroke = style.effects.filterIsInstance<TextEffect.Stroke>().firstOrNull()
     val glow = style.effects.filterIsInstance<TextEffect.OuterGlow>().firstOrNull()
     val gradient = style.effects.filterIsInstance<TextEffect.GradientFill>().firstOrNull()
+    val blur = style.effects.filterIsInstance<TextEffect.Blur>().firstOrNull()
+    val shGrad = shadow?.gradient?.takeIf { it.size >= 2 }
     // Auto-shadow agar teks terang selalu muncul di atas komik terang (fix #4).
-    val effShadow = shadow ?: if (bg == null &&
+    // Dilewati bila shadow-gradasi sudah ada (salinannya yang memberi bayangan).
+    val effShadow = shadow ?: if (shGrad == null && bg == null &&
         (style.color.red + style.color.green + style.color.blue) / 3f > 0.7f
     ) {
         TextEffect.DropShadow(Color.Black.copy(alpha = 0.8f), 0f, 4f, 10f)
@@ -949,6 +958,7 @@ private fun StackedText(
     Box(
         modifier = Modifier.padding(2.dp)
             .background(bg?.color ?: Color.Transparent, RoundedCornerShape(8.dp))
+            .blurCompat(blur?.radius ?: 0f)
             .padding(6.dp),
     ) {
         @Composable
@@ -975,9 +985,10 @@ private fun StackedText(
                 )
             }
         }
-        // Stroke 8-arah yang benar (sebelumnya hanya 1 offset → tidak terlihat).
+        // Stroke 8-arah yang benar; mendukung mode gradasi 2 warna.
         if (stroke != null) {
             val r = (stroke.widthPx / 3.5f).coerceIn(1f, 7f)
+            val stGrad = stroke.gradient?.takeIf { it.size >= 2 }
             listOf(
                 -r to 0f, r to 0f, 0f to -r, 0f to r,
                 -r to -r, r to r, -r to r, r to -r,
@@ -985,21 +996,52 @@ private fun StackedText(
                 Para { ann ->
                     Text(
                         ann,
-                        style = base.copy(
-                            color = stroke.color,
-                            shadow = Shadow(stroke.color, Offset(dx, dy), 0.6f),
-                        ),
+                        style = if (stGrad != null) {
+                            base.copy(
+                                brush = Brush.linearGradient(stGrad),
+                                shadow = Shadow(stGrad[0], Offset(dx, dy), 0.6f),
+                            )
+                        } else {
+                            base.copy(
+                                color = stroke.color,
+                                shadow = Shadow(stroke.color, Offset(dx, dy), 0.6f),
+                            )
+                        },
                     )
                 }
             }
         }
+        // Shadow gradasi: salinan seposisi (tertutup teks utama), bayangannya mengintip.
+        if (shGrad != null && shadow != null) {
+            Para { ann ->
+                Text(
+                    ann,
+                    style = base.copy(
+                        brush = Brush.linearGradient(shGrad),
+                        shadow = Shadow(shGrad[0], Offset(shadow.dx, shadow.dy), shadow.blur),
+                    ),
+                )
+            }
+        }
         if (gradient != null && gradient.colors.size >= 2) {
             Para { ann ->
-                Text(ann, style = base.copy(brush = Brush.linearGradient(gradient.colors)))
+                Text(
+                    ann,
+                    style = base.copy(
+                        brush = Brush.linearGradient(gradient.colors),
+                        shadow = if (shGrad != null) null else base.shadow,
+                    ),
+                )
             }
         } else {
             Para { ann ->
-                Text(ann, style = base.copy(color = style.color))
+                Text(
+                    ann,
+                    style = base.copy(
+                        color = style.color,
+                        shadow = if (shGrad != null) null else base.shadow,
+                    ),
+                )
             }
         }
     }

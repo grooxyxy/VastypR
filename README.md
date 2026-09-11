@@ -13,7 +13,7 @@ MVP-1 (sudah jadi di repo ini):
 - Tools: pan, move, selection-rect, **lasso**, brush + eraser, eyedrop (panel), text, **crop interaktif non-destruktif**
 - Brush + color palette + size slider (`BrushEngine`, `ColorPanel`)
 - Canvas tall-image safe: viewport pan/zoom + `TallImageManager.decodeRegion` (720x16000+ tanpa OOM) + gambar sumber via Coil (Fit)
-- Text + efek ditumpuk: stroke + shadow + background (+ glow/gradient stub) (`TextStyle.kt`)
+- Text + efek ditumpuk: outline + shadow (mode solid/gradasi) + glow + gradient + background + blur (`TextStyle.kt`)
 - Text style save/load via DataStore (`UserPrefs`)
 - API key screen terenkripsi: Agnes AI, Gemini AI, Sumopod (`ApiKeyStore`)
 - Icon adaptive clean (bubble + V + brush dot)
@@ -113,16 +113,16 @@ bisa diganti link GitHub Release sendiri:
 - Preview real (bukan nama file), cari via kolom search, **Import** via file picker (SAF) → tersimpan di `filesDir/fonts/`. Font sistem (Default/Sans/Serif/Mono) selalu ada, tidak bisa dihapus.
 - Canvas: font custom dirender akurat via `TextView` bila efek kompatibel; bila pakai Stroke/Gradient/Glow → fallback Compose (tetap 5 efek jalan).
 
-## Text Editor (Photoshop-like + 5 efek + save/load)
+## Text Editor (Photoshop-like + 6 efek + save/load)
 
-- Pilih layer teks → **Edit text**: konten (`\n` = baris baru, baris kosong = paragraf), font, size (12–120sp), warna, Bold/Italic.
+- Pilih layer teks → **Edit text**: konten (`\n` = baris baru, baris kosong = paragraf), font, size (12–120sp), warna via **color wheel** (hue ring + SV + alpha + hex + preset), Bold/Italic.
 - **Paragraf**: Kiri/Tengah/Kanan/Rata (justify).
 - **Tipografi (em)**: Leading / jarak baris (0.90–2.50, untuk teks 2 baris ke atas),
   Tracking / jarak huruf (−0.10–0.50), Word spacing / jarak kata (0–1),
   Paragraph spacing / jeda tiap paragraf (0–1.5, aktif pada batas paragraf).
 - **Transformasi**: AA Caps, Underline, Strikethrough.
-- 5 efek **ditumpuk**: Stroke, Shadow, Outer Glow, Gradient Fill, Background (+ Save/Load style via DataStore, kompatibel dengan style lama).
-- Render urutan: fill → gradient → stroke → glow → shadow → background. Berlaku di canvas, font custom (`TextView`), dan export PNG/JPEG/WEBP.
+- 6 efek **ditumpuk**: Outline (solid/gradasi), Shadow (solid/gradasi + offset X/Y), Outer Glow, Gradient Fill, Background, Blur (+ Save/Load style via DataStore, kompatibel dengan style lama).
+- Render urutan: fill → gradient → stroke → glow → shadow → background → blur. Berlaku di canvas, font custom (`TextView` untuk efek sederhana), dan export PNG/JPEG/WEBP.
 
 ## Export (format + nama + resolusi)
 

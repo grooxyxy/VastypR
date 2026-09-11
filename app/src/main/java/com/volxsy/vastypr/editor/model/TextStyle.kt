@@ -3,13 +3,28 @@ package com.volxsy.vastypr.editor.model
 import androidx.compose.ui.graphics.Color
 
 // Skill: android-kotlin-core — efek teks DITUMPUK (list), ala Photoshop Layer Style.
-// Urutan render: fill -> gradient overlay -> stroke -> glow -> shadow.
+// Urutan render: fill -> gradient overlay -> stroke -> glow -> shadow -> blur.
+// - Stroke & DropShadow punya MODE GRADASI: bila `gradient` 2 warna terisi,
+//   outline/bayangan dirender gradasi (brush linear); bila null → warna solid.
+// - Blur: efek lembut ala Photoshop (radius px, API 31+ via RenderEffect,
+//   di bawah itu fallback lapisan halus). Tanpa dep baru.
 sealed interface TextEffect {
-    data class Stroke(val color: Color, val widthPx: Float) : TextEffect
-    data class DropShadow(val color: Color, val dx: Float, val dy: Float, val blur: Float) : TextEffect
+    data class Stroke(
+        val color: Color,
+        val widthPx: Float,
+        val gradient: List<Color>? = null, // null = solid; 2 warna = outline gradasi
+    ) : TextEffect
+    data class DropShadow(
+        val color: Color,
+        val dx: Float,
+        val dy: Float,
+        val blur: Float,
+        val gradient: List<Color>? = null, // null = solid; 2 warna = shadow gradasi
+    ) : TextEffect
     data class OuterGlow(val color: Color, val radius: Float) : TextEffect
     data class GradientFill(val colors: List<Color>) : TextEffect
     data class Background(val color: Color, val cornerPx: Float, val paddingPx: Float) : TextEffect
+    data class Blur(val radius: Float) : TextEffect // 0..25px
 }
 
 // Skill: android-mobile-frontend-design — tipografi ala Photoshop Character/Paragraph.

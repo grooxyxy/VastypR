@@ -68,9 +68,11 @@ object TextStyleJson {
     private fun encodeEffect(e: TextEffect): JSONObject = when (e) {
         is TextEffect.Stroke -> JSONObject()
             .put("t", "stroke").put("c", e.color.toArgb()).put("w", e.widthPx.toDouble())
+            .putOpt("cs", e.gradient?.let { g -> JSONArray(g.map { it.toArgb() }) })
         is TextEffect.DropShadow -> JSONObject()
             .put("t", "shadow").put("c", e.color.toArgb())
             .put("dx", e.dx.toDouble()).put("dy", e.dy.toDouble()).put("b", e.blur.toDouble())
+            .putOpt("cs", e.gradient?.let { g -> JSONArray(g.map { it.toArgb() }) })
         is TextEffect.OuterGlow -> JSONObject()
             .put("t", "glow").put("c", e.color.toArgb()).put("r", e.radius.toDouble())
         is TextEffect.GradientFill -> JSONObject()
@@ -78,15 +80,26 @@ object TextStyleJson {
         is TextEffect.Background -> JSONObject()
             .put("t", "bg").put("c", e.color.toArgb())
             .put("cr", e.cornerPx.toDouble()).put("pd", e.paddingPx.toDouble())
+        is TextEffect.Blur -> JSONObject()
+            .put("t", "blur").put("r", e.radius.toDouble())
     }
 
     private fun decodeEffect(o: JSONObject?): TextEffect? {
         if (o == null) return null
+        fun optColors(key: String): List<Color>? {
+            val arr = o.optJSONArray(key) ?: return null
+            if (arr.length() < 2) return null
+            return List(arr.length()) { Color(arr.optInt(it)) }.take(2)
+        }
         return when (o.optString("t")) {
-            "stroke" -> TextEffect.Stroke(Color(o.optInt("c")), o.optDouble("w", 6.0).toFloat())
+            "stroke" -> TextEffect.Stroke(
+                Color(o.optInt("c")), o.optDouble("w", 6.0).toFloat(),
+                optColors("cs"),
+            )
             "shadow" -> TextEffect.DropShadow(
                 Color(o.optInt("c")), o.optDouble("dx").toFloat(),
-                o.optDouble("dy").toFloat(), o.optDouble("b").toFloat(),
+                o.optDouble("dy", 4.0).toFloat(), o.optDouble("b", 8.0).toFloat(),
+                optColors("cs"),
             )
             "glow" -> TextEffect.OuterGlow(Color(o.optInt("c")), o.optDouble("r", 12.0).toFloat())
             "grad" -> {
@@ -96,6 +109,7 @@ object TextStyleJson {
             "bg" -> TextEffect.Background(
                 Color(o.optInt("c")), o.optDouble("cr", 8.0).toFloat(), o.optDouble("pd", 8.0).toFloat(),
             )
+            "blur" -> TextEffect.Blur(o.optDouble("r", 8.0).toFloat().coerceIn(0f, 25f))
             else -> null
         }
     }
