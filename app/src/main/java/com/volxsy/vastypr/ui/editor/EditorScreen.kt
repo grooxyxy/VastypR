@@ -1,5 +1,6 @@
 package com.volxsy.vastypr.ui.editor
 
+import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -43,8 +44,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.toArgbimport androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontFamily
@@ -539,8 +539,10 @@ private fun LayerText(layer: Layer.Text, typeface: android.graphics.Typeface?) {
     }
 }
 
-private fun applyTextViewProps(
-    tv: android.widget.TextView,
+// Layout.* tersedia sejak API 26 (minSdk) dan nilainya identik dengan
+// LineBreaker.* (API 29) yang diminta signature justificationMode.
+@SuppressLint("WrongConstant")
+private fun applyTextViewProps(    tv: android.widget.TextView,
     content: String,
     style: VastTextStyle,
     typeface: android.graphics.Typeface,
