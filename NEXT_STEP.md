@@ -23,8 +23,9 @@ Bubble YOLO + PP-OCR mask + MiGAN/Telea/LaMa + Export/Translate/Crop/Lasso + **C
 
 ## Prioritas berikutnya: Push GitHub + verifikasi CI
 
-- [ ] Push isi `VastypR/` ke repo kosong (tanpa file `.onnx`!) → Actions **VastypR CI** hijau → download APK → tes di HP: Bubble, Clean, OCR, Inpaint (Telea), Render, Export.
-- [ ] Bila CI merah → kirim log error ke saya (khususnya area `ai.onnxruntime` / ML Kit / `PickVisualMedia` / `LinearProgressIndicator(progress={})`).
+- [x] Push `VastypR/` ke `github.com/grooxyxy/VastypR` (2026-09-11, tanpa `.onnx`) → Actions **VastypR CI HIJAU** (run 34552745664, artefak `vastypr-debug-apk` 44.5MB).
+- [x] Fix beruntun dari log CI: import `java.io/java.net` (bundleBubbleModel) → ORT `1.19.2` tak ada di Maven (pakai `1.18.0`) → `<circle>` ilegal di VectorDrawable → dep `hilt-navigation-compose` hilang + `toArgb` import + `copy(brush)` + `isUnderlineText` → lint `WrongConstant` justification → lint `FullBackupContent` backup rules.
+- [ ] Tes di HP: download APK dari Artifacts → install → Bubble, Clean, OCR, Inpaint (Telea), Render, Export.
 - Selesai bila: APK terinstall dan 6 tombol AI jalan dengan model manual.
 
 ## Checklist model (kamu, bukan saya — atau via tombol Download di Settings → Models)

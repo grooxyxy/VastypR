@@ -80,7 +80,7 @@
 
 - MVP-2 sisa: PP-OCR REC (baca tulis CJK — Manhwa-Translator pakai Gemini-vision; di VastypR opsional karena ML Kit Latin + provider translate sudah ada), eyedrop sampling pixel tile, OCR CJK offline (butuh artefak ML Kit tambahan = DEP BARU, tanya user dulu), session ORT persisten.
 - MVP-3: LaMa overlap-blend penuh, folder drag-reorder, gradient/glow penuh native.
-- Verifikasi terakhir sesi ini: file Kotlin ≈ 60, `drawable` 15 icon, kontrak lama bersih, nama file model selaras referensi, dep ML aktif, model tetap copy manual. Compile BELUM diverifikasi (tunggu CI).
+- Verifikasi 2026-09-11: push ke `github.com/grooxyxy/VastypR` → **CI HIJAU** (run 34552745664, APK 44.5MB). Fix dari log: import java.io/net, ORT 1.18.0, `<circle>`→path, hilt-navigation-compose 1.2.0, toArgb import, copy(brush), isUnderlineText, lint justification + backup rules. Sisa: tes di HP.
 
 ## 2. Aturan aktif (JANGAN dilanggar)
 - **DILARANG download model/dependencies tanpa izin user.** Izin yang pernah diberikan: download+install `git` via `apk` (SELESAI, git 2.47.3). Gradle deps, ONNX, font, model = BELUM diizinkan.
