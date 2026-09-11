@@ -87,7 +87,7 @@ private fun parseHex(raw: String): Color? = runCatching {
     when (s.length) {
         6 -> {
             val v = s.toLong(16)
-            Color(0xFF000000 or v.toInt())
+            Color(0xFF000000L or v)
         }
         8 -> {
             val v = s.toULong(16)

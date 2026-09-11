@@ -1,6 +1,5 @@
 package com.volxsy.vastypr.ui.editor.components
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -324,17 +323,15 @@ private fun CardSection(title: String, body: @Composable () -> Unit) {
     }
 }
 
-/** Blur kompatibel: RenderEffect di API 31+, no-op halus di bawahnya. */
+/** Blur kompatibel: RenderEffect Compose (null otomatis di bawah API 31). */
 fun Modifier.blurCompat(radiusPx: Float): Modifier =
     if (radiusPx <= 0.01f) this
-    else if (Build.VERSION.SDK_INT >= 31) {
+    else {
         graphicsLayer {
-            renderEffect = android.graphics.RenderEffect.createBlurEffect(
-                radiusPx, radiusPx, android.graphics.Shader.TileMode.CLAMP,
+            renderEffect = androidx.compose.ui.graphics.RenderEffect.createBlurEffect(
+                radiusPx, radiusPx,
             )
         }
-    } else {
-        this
     }
 
 @Composable
