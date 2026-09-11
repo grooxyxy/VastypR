@@ -363,7 +363,7 @@ fun CanvasEyedropDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                androidx.compose.foundation.layout.BoxWithConstraints(
+                Box(
                     Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 340.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF23242F))
