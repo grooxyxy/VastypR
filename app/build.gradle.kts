@@ -1,6 +1,10 @@
 // Skill: android-gradle-build-logic + android-modularization + android-compose-performance
 // Modul tunggal :app untuk MVP-1 agar mudah di-build di GitHub.
 // Split ke :core/:feature saat codebase > ~30 file (lihat AGENTS.md handoff).
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.URI
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -80,7 +84,7 @@ android {
         doLast {
             bubbleAsset.asFile.parentFile?.mkdirs()
             if (bubbleModelPath.isNotBlank()) {
-                val src = java.io.File(bubbleModelPath)
+                val src = File(bubbleModelPath)
                 require(src.exists() && src.length() > 0) {
                     "BUBBLE_MODEL_PATH tidak ditemukan: $bubbleModelPath"
                 }
@@ -88,8 +92,8 @@ android {
                 println("bundleBubbleModel: disalin dari $bubbleModelPath")
             } else if (bubbleModelUrl.isNotBlank()) {
                 println("bundleBubbleModel: mengunduh (build-time, atas konfigurasi user) ...")
-                java.net.URI(bubbleModelUrl).toURL().openStream().use { ins ->
-                    bubbleAsset.asFile.outputStream().use { outs -> ins.copyTo(outs) }
+                URI(bubbleModelUrl).toURL().openStream().use { ins: InputStream ->
+                    bubbleAsset.asFile.outputStream().use { outs: OutputStream -> ins.copyTo(outs) }
                 }
                 println("bundleBubbleModel: selesai dari URL")
             } else {
