@@ -136,6 +136,7 @@ dependencies {
 
     // DI — skill: android-di-hilt
     implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.navigation.compose) // hiltViewModel() di semua Screen
     ksp(libs.hilt.compiler)
 
     // Coroutines — skill: android-coroutines-flow

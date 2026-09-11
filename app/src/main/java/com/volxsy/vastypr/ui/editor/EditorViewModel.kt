@@ -412,7 +412,7 @@ class EditorViewModel @Inject constructor(
                 textSize = st.fontSizeSp * 3f
                 textAlign = Paint.Align.LEFT // x dihitung manual per align
                 letterSpacing = st.letterSpacingEm
-                underlineText = st.underline
+                isUnderlineText = st.underline // getter Paint: isUnderlineText()
                 isStrikeThruText = st.strike
                 fonts.getTypeface(st.fontId)?.let { tf ->
                     val tfStyle = when {

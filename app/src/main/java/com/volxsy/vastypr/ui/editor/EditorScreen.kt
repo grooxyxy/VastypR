@@ -701,8 +701,8 @@ private fun StackedText(
             Layer { ann ->
                 Text(
                     ann,
+                    // copy(brush) dan copy(color) overload terpisah — brush menang saat render.
                     style = base.copy(
-                        color = Color.Unspecified,
                         brush = Brush.linearGradient(gradient.colors),
                     ),
                 )
