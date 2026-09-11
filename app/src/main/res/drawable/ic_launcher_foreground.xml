@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- Skill: android-mobile-frontend-design — icon clean: bubble + V tegas + aksen brush.
+         Background solid di ic_launcher.xml (@color/ic_launcher_background #14141F).
+         Foreground aman di 72dp circle (adaptive safe-zone). -->
+    <!-- Speech bubble -->
+    <path
+        android:fillColor="#F6F6FA"
+        android:pathData="M54,22
+        C72,22 86,34 86,50
+        C86,63 76,73 63,77
+        L58,88 L55,77
+        C32,76 22,64 22,50
+        C22,34 36,22 54,22 Z" />
+    <!-- V cutout (brand indigo) -->
+    <path
+        android:fillColor="#5B5BF0"
+        android:pathData="M38,40 L48,64 L54,50 L60,64 L70,40 L64,40 L57,55 L54,48 L51,55 L44,40 Z" />
+    <!-- Brush accent dot -->
+    <circle android:fillColor="#9D7BFF" android:cx="74" android:cy="68" android:r="6" />
+    <circle android:fillColor="#14141F" android:cx="74" android:cy="68" android:r="2.4" />
+</vector>

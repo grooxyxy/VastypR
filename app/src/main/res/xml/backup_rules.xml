@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Skill: android-security-best-practices — backup hanya project user, bukan API keys. -->
+<full-backup-content>
+    <include domain="file" path="vastypr/" />
+    <exclude domain="sharedpref" path="secret_prefs" />
+</full-backup-content>

@@ -1,0 +1,25 @@
+# Skill: android-ci-cd-release-playstore + android-security-best-practices
+# Jangan commit keystore / secrets.
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+app/build/
+app/release/
+*.ap_*
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+google-services.json
+# Model ML lokal (besar) — user sediakan via release, bukan commit langsung
+*.onnx
+*.tflite
+*.pt
+*.bin
+/app/src/main/assets/models/
+# Export sementara
+.vastypR-cache/

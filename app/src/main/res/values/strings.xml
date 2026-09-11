@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">VastypR</string>
+    <string name="tagline">Manhwa &amp; Manga Editor</string>
+    <string name="home_title">Projects</string>
+    <string name="home_empty_title">Belum ada project</string>
+    <string name="home_empty_desc">Import gambar manhwa / manga untuk mulai mengedit. Mendukung gambar super-tall hingga 720x16000+.</string>
+    <string name="action_import">Import</string>
+    <string name="action_export">Export</string>
+    <string name="action_new">Baru</string>
+    <string name="editor_layers">Layers</string>
+    <string name="settings_translation_keys">API Keys Terjemahan</string>
+</resources>

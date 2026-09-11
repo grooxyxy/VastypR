@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <!-- CLEAN — bubble kecil + sparkle auto-clean (generated vector, outline konsisten 1.8dp) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M3,5 H14 V11 H9 L6.5,13.5 V11 H3 Z M18,3 L18.8,5.5 L21.5,6.3 L18.8,7.1 L18,9.6 L17.2,7.1 L14.5,6.3 L17.2,5.5 Z M19,13 V17 M17,15 H21" />
+</vector>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Skill: android-material3-design-system + android-mobile-frontend-design -->
+    <!-- Brand VastypR: indigo-violet confident utility, clean untuk editor. -->
+    <color name="brand_primary">#5B5BF0</color>
+    <color name="brand_primary_dark">#3D3DBB</color>
+    <color name="brand_accent">#9D7BFF</color>
+    <color name="ink">#12131A</color>
+    <color name="paper">#F6F6FA</color>
+    <color name="ic_launcher_background">#14141F</color>
+</resources>

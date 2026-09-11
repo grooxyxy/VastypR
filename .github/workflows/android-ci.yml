@@ -1,0 +1,54 @@
+name: VastypR CI (MVP-1 — no local build, GitHub only)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.7 (no wrapper jar needed)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Bundle bubble model (opsional, hanya bila secret diisi)
+        # Skill: android-ci-cd-release-playstore
+        # BUBBLE_MODEL_URL = link file comic-speech-bubble-detector.onnx milik user
+        # (mis. GitHub Release sendiri). Bila kosong → build lanjut tanpa bundle,
+        # detektor fallback ke file manual / tombol Download. BUKAN download oleh saya.
+        env:
+          BUBBLE_MODEL_URL: ${{ secrets.BUBBLE_MODEL_URL }}
+        run: |
+          if [ -n "$BUBBLE_MODEL_URL" ]; then
+            gradle :app:bundleBubbleModel -PBUBBLE_MODEL_URL="$BUBBLE_MODEL_URL" --no-daemon --stacktrace
+          else
+            echo "Tanpa BUBBLE_MODEL_URL — APK tanpa bundle bubble (fallback manual aktif)."
+          fi
+
+      - name: Lint + Unit test + Assemble debug
+        # Skill: android-ci-cd-release-playstore + android-testing-unit
+        run: |
+          gradle :app:lintDebug --no-daemon --stacktrace
+          gradle :app:testDebugUnitTest --no-daemon --stacktrace
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vastypr-debug-apk
+          path: app/build/outputs/apk/debug/*.apk

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="780" viewBox="0 0 360 780" font-family="sans-serif">
+<rect width="360" height="780" rx="28" fill="#14141F"/>
+<rect x="14" y="14" width="332" height="752" rx="20" fill="#1B1C26"/>
+<text x="180" y="52" fill="#F6F6FA" font-size="20" font-weight="bold" text-anchor="middle">VastypR</text>
+<circle cx="312" cy="46" r="14" fill="#262733"/>
+<text x="312" y="51" fill="#9D7BFF" font-size="14" text-anchor="middle">⚙</text>
+<!-- card with thumbnail -->
+<rect x="30" y="76" width="140" height="210" rx="14" fill="#262733"/>
+<rect x="30" y="76" width="140" height="120" rx="14" fill="#3A3B4D"/>
+<text x="100" y="140" fill="#9D7BFF" font-size="24" text-anchor="middle">▦</text>
+<text x="44" y="216" fill="#F6F6FA" font-size="12">Solo Ch.12</text>
+<text x="44" y="234" fill="#9D7BFF" font-size="11">720x15400</text>
+<text x="150" y="234" fill="#FF5C5C" font-size="12">🗑</text>
+<rect x="190" y="76" width="140" height="210" rx="14" fill="#262733"/>
+<rect x="190" y="76" width="140" height="120" rx="14" fill="#3A3B4D"/>
+<text x="260" y="140" fill="#9D7BFF" font-size="24" text-anchor="middle">▦</text>
+<text x="204" y="216" fill="#F6F6FA" font-size="12">ORV Ch.13</text>
+<text x="204" y="234" fill="#9D7BFF" font-size="11">720x16200</text>
+<text x="310" y="234" fill="#FF5C5C" font-size="12">🗑</text>
+<!-- empty hint -->
+<rect x="30" y="300" width="300" height="70" rx="14" fill="#262733" stroke="#5B5BF0" stroke-dasharray="6 5"/>
+<text x="180" y="328" fill="#F6F6FA" font-size="13" text-anchor="middle">[Galeri]  [Files]</text>
+<text x="180" y="350" fill="#9D7BFF" font-size="11" text-anchor="middle">Photo Picker + SAF fallback</text>
+<text x="30" y="392" fill="#888" font-size="11">loading: spinner • error: snackbar • tap kartu → Editor</text>
+<rect x="196" y="680" width="134" height="56" rx="28" fill="#5B5BF0"/>
+<text x="263" y="715" fill="white" font-size="16" font-weight="bold" text-anchor="middle">＋ Import</text>
+<text x="180" y="756" fill="#666" font-size="10" text-anchor="middle">HOME rev2 — thumbnail + delete + 2 import</text>
+</svg>
