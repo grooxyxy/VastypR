@@ -10,8 +10,9 @@ MVP-1 (sudah jadi di repo ini):
 - Import all image (Photo Picker + SAF + share-sheet `SEND`/`SEND_MULTIPLE`), export jpeg/png/webp + custom name + custom resolution (`ExportManager`)
 - Layer penuh: add / delete / duplicate / copy / clip / folder / visibility / opacity / reorder (`LayerManager`)
 - Undo / Redo 100 langkah (`UndoRedoManager`)
-- Tools: pan, move, selection-rect, **lasso**, brush + eraser, eyedrop (panel), text, **crop interaktif non-destruktif**
-- Brush + color palette + size slider (`BrushEngine`, `ColorPanel`)
+- Tools: pan (zoom 0.25–10x), move, selection-rect, **lasso**, brush + eraser, eyedrop (panel + pipet dari gambar), text, **crop interaktif non-destruktif**
+- Brush + color wheel + eyedrop + size slider (`BrushEngine`, `ColorPanel`)
+- Teks: auto-fit ke lebar canvas saat dibuat, tombol **Fit ke bubble** + **Pusatkan** (ala TypeR), style manager bernama (simpan/duplikat/hapus/terapkan)
 - Canvas tall-image safe: viewport pan/zoom + `TallImageManager.decodeRegion` (720x16000+ tanpa OOM) + gambar sumber via Coil (Fit)
 - Text + efek ditumpuk: outline + shadow (mode solid/gradasi) + glow + gradient + background + blur (`TextStyle.kt`)
 - Text style save/load via DataStore (`UserPrefs`)
@@ -20,7 +21,7 @@ MVP-1 (sudah jadi di repo ini):
 - Clean UI dark-first Material3 (Home → Editor → Settings)
 
 MVP-2 (kode wiring SELESAI; dep gradle aktif; model .onnx copy MANUAL dari Manhwa-Translator/model):
-- Bubble detection YOLOv8m (`YoloV8mBubbleDetector`, onnxruntime-mobile, `models/comic-speech-bubble-detector.onnx`, tiling 1200/300 + NMS global)
+- Bubble detection YOLOv8m (`YoloV8mBubbleDetector`, onnxruntime-android FULL, `models/comic-speech-bubble-detector.onnx`, strip-tiling tall + NMS global)
 - OCR: ML Kit v2 Latin offline (`MlKitOcrEngine`); mask teks presisi PP-OCRv6 det (`PpOcrTextMask`, `models/PP-OCRv6_small_det.onnx`)
 - Mask polygon sesuai bentuk teks (`MaskBuilder` + dilasi) + unclip per-komponen PP-OCR
 - Inpaint Telea-lite murni Kotlin tanpa OpenCV (default) + LaMa ONNX + MiGAN persis pipeline `migan_inpaint.py` (`models/migan_lxfater.onnx`)

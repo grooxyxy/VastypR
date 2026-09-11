@@ -35,6 +35,7 @@ fun ColorPanel(
     onColor: (Color) -> Unit,
     onSize: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    eyedrop: EyedropSpec? = null,
 ) {
     Column(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -61,7 +62,7 @@ fun ColorPanel(
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
-        WheelColorField(current = current, onPick = onColor, label = "Warna brush")
+        WheelColorField(current = current, onPick = onColor, label = "Warna brush", eyedrop = eyedrop)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
             listOf("S" to 8f, "M" to 24f, "L" to 48f, "XL" to 80f).forEach { (label, v) ->
                 FilterChip(

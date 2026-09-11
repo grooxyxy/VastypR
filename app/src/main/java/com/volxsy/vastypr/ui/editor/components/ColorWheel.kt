@@ -4,11 +4,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +47,7 @@ import com.volxsy.vastypr.editor.model.DefaultPalette
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlinx.coroutines.launch
 
 // Skill: android-compose-foundations + android-mobile-frontend-design
 // Color wheel ala aplikasi gambar (ibisPaint/MediBang): lingkaran Hue +
@@ -246,8 +252,10 @@ fun WheelColorField(
     onPick: (Color) -> Unit,
     modifier: Modifier = Modifier,
     label: String = "Warna",
+    eyedrop: EyedropSpec? = null,
 ) {
     var showWheel by remember { mutableStateOf(false) }
+    var showPipet by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth()) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -266,6 +274,9 @@ fun WheelColorField(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            if (eyedrop != null) {
+                TextButton(onClick = { showPipet = true }) { Text("Pipet") }
             }
             TextButton(onClick = { showWheel = true }) { Text("Wheel…") }
         }
@@ -308,4 +319,119 @@ fun WheelColorField(
             },
         )
     }
+    if (showPipet && eyedrop != null) {
+        CanvasEyedropDialog(
+            spec = eyedrop,
+            onPick = { onPick(it); showPipet = false },
+            onDismiss = { showPipet = false },
+        )
+    }
+}
+
+/**
+ * Sumber eyedrop: model gambar (URI/file untuk Coil) + dimensi asli + sampler
+ * piksel (koordinat ternormalisasi 0..1 → warna, null bila di luar/gagal).
+ */
+data class EyedropSpec(
+    val model: Any?,
+    val imageWidth: Int,
+    val imageHeight: Int,
+    val sample: suspend (Float, Float) -> Color?,
+)
+
+/**
+ * Dialog pipet: tap gambar sumber untuk menyalin warnanya (copy from canvas).
+ * Sampler membaca piksel gambar sumber (cepat, sampled 1080px).
+ */
+@Composable
+fun CanvasEyedropDialog(
+    spec: EyedropSpec,
+    onPick: (Color) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var tap by remember { mutableStateOf<Offset?>(null) }
+    var picked by remember { mutableStateOf<Color?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pipet dari gambar") },
+        text = {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    "Tap gambar untuk menyalin warnanya.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                androidx.compose.foundation.layout.BoxWithConstraints(
+                    Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 340.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF23242F))
+                        .pointerInput(spec) {
+                            detectTapGestures(onTap = { pos ->
+                                tap = pos
+                                picked = null
+                                val iw = spec.imageWidth.toFloat()
+                                val ih = spec.imageHeight.toFloat()
+                                if (iw <= 0 || ih <= 0) return@detectTapGestures
+                                val bw = size.width.toFloat()
+                                val bh = size.height.toFloat()
+                                val s = minOf(bw / iw, bh / ih)
+                                val dw = iw * s
+                                val dh = ih * s
+                                val ox = (bw - dw) / 2f
+                                val oy = (bh - dh) / 2f
+                                val nx = (pos.x - ox) / dw
+                                val ny = (pos.y - oy) / dh
+                                if (nx !in 0f..1f || ny !in 0f..1f) return@detectTapGestures
+                                busy = true
+                                scope.launch {
+                                    picked = runCatching { spec.sample(nx, ny) }.getOrNull()
+                                    busy = false
+                                }
+                            })
+                        },
+                ) {
+                    coil.compose.AsyncImage(
+                        model = spec.model,
+                        contentDescription = "Gambar sumber untuk pipet",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    )
+                    tap?.let { p ->
+                        Box(
+                            Modifier.size(28.dp)
+                                .offset { androidx.compose.ui.unit.IntOffset(p.x.toInt() - 14.dp.toPx().toInt(), p.y.toInt() - 14.dp.toPx().toInt()) }
+                                .clip(CircleShape)
+                                .background((picked ?: Color.White).copy(alpha = 0.85f))
+                                .border(2.dp, Color.White, CircleShape),
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(44.dp).clip(CircleShape)
+                            .background(picked ?: Color.Transparent)
+                            .border(2.dp, MaterialTheme.colorScheme.outline, CircleShape),
+                    )
+                    Text(
+                        when {
+                            busy -> "Membaca piksel…"
+                            picked != null -> toHex(picked!!)
+                            tap == null -> "Belum ada tap"
+                            else -> "Di luar gambar / gagal"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { picked?.let(onPick) }, enabled = picked != null) { Text("Pakai") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal") }
+        },
+    )
 }

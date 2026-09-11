@@ -2,6 +2,7 @@ package com.volxsy.vastypr.ui.editor.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
@@ -85,6 +88,11 @@ fun TextEditorDialog(
     onLoadStyle: () -> VastTextStyle?,
     onDone: (String, VastTextStyle) -> Unit,
     onDismiss: () -> Unit,
+    eyedrop: EyedropSpec? = null,
+    namedStyles: Map<String, VastTextStyle> = emptyMap(),
+    onSaveNamedStyle: (String, VastTextStyle) -> Unit = { _, _ -> },
+    onDeleteNamedStyle: (String) -> Unit = {},
+    onDuplicateNamedStyle: (String) -> Unit = {},
 ) {
     var content by remember { mutableStateOf(initialContent) }
     var size by remember { mutableFloatStateOf(initialStyle.fontSizeSp) }
@@ -251,7 +259,7 @@ fun TextEditorDialog(
                             onDelete = onDeleteFont,
                         )
                         LabeledSlider("Ukuran", "${size.toInt()}sp", size, 12f..120f) { size = it }
-                        WheelColorField(current = color, onPick = { color = it }, label = "Warna teks")
+                        WheelColorField(current = color, onPick = { color = it }, eyedrop = eyedrop, label = "Warna teks")
                     }
                     CardSection("Paragraf & gaya") {
                         ChipRow {
@@ -290,11 +298,11 @@ fun TextEditorDialog(
                                 onPick = { strokeGradOn = it == 1 },
                             )
                             if (strokeGradOn) {
-                                WheelColorField(current = strokeGA, onPick = { strokeGA = it }, label = "Gradasi 1")
+                                WheelColorField(current = strokeGA, onPick = { strokeGA = it }, eyedrop = eyedrop, label = "Gradasi 1")
                                 Spacer(Modifier.padding(top = 4.dp))
-                                WheelColorField(current = strokeGB, onPick = { strokeGB = it }, label = "Gradasi 2")
+                                WheelColorField(current = strokeGB, onPick = { strokeGB = it }, eyedrop = eyedrop, label = "Gradasi 2")
                             } else {
-                                WheelColorField(current = strokeColor, onPick = { strokeColor = it }, label = "Warna outline")
+                                WheelColorField(current = strokeColor, onPick = { strokeColor = it }, eyedrop = eyedrop, label = "Warna outline")
                             }
                             LabeledSlider("Tebal", "${strokeW.toInt()}px", strokeW, 1f..24f) { strokeW = it }
                         }
@@ -305,27 +313,27 @@ fun TextEditorDialog(
                                 onPick = { shadowGradOn = it == 1 },
                             )
                             if (shadowGradOn) {
-                                WheelColorField(current = shadowGA, onPick = { shadowGA = it }, label = "Gradasi 1")
+                                WheelColorField(current = shadowGA, onPick = { shadowGA = it }, eyedrop = eyedrop, label = "Gradasi 1")
                                 Spacer(Modifier.padding(top = 4.dp))
-                                WheelColorField(current = shadowGB, onPick = { shadowGB = it }, label = "Gradasi 2")
+                                WheelColorField(current = shadowGB, onPick = { shadowGB = it }, eyedrop = eyedrop, label = "Gradasi 2")
                             } else {
-                                WheelColorField(current = shadowColor, onPick = { shadowColor = it }, label = "Warna shadow")
+                                WheelColorField(current = shadowColor, onPick = { shadowColor = it }, eyedrop = eyedrop, label = "Warna shadow")
                             }
                             LabeledSlider("Offset X", "${"%.1f".format(shadowDx)}", shadowDx, -24f..24f) { shadowDx = it }
                             LabeledSlider("Offset Y", "${"%.1f".format(shadowDy)}", shadowDy, -24f..24f) { shadowDy = it }
                             LabeledSlider("Blur", "${shadowBlur.toInt()}", shadowBlur, 0f..32f) { shadowBlur = it }
                         }
                         Effect("Outer Glow", glowOn, { glowOn = it }) {
-                            WheelColorField(current = glowColor, onPick = { glowColor = it }, label = "Warna glow")
+                            WheelColorField(current = glowColor, onPick = { glowColor = it }, eyedrop = eyedrop, label = "Warna glow")
                             LabeledSlider("Radius", "${glowR.toInt()}", glowR, 4f..48f) { glowR = it }
                         }
                         Effect("Gradient Fill", gradOn, { gradOn = it }) {
-                            WheelColorField(current = gradA, onPick = { gradA = it }, label = "Warna 1")
+                            WheelColorField(current = gradA, onPick = { gradA = it }, eyedrop = eyedrop, label = "Warna 1")
                             Spacer(Modifier.padding(top = 4.dp))
-                            WheelColorField(current = gradB, onPick = { gradB = it }, label = "Warna 2")
+                            WheelColorField(current = gradB, onPick = { gradB = it }, eyedrop = eyedrop, label = "Warna 2")
                         }
                         Effect("Background", bgOn, { bgOn = it }) {
-                            WheelColorField(current = bgColor, onPick = { bgColor = it }, label = "Warna background")
+                            WheelColorField(current = bgColor, onPick = { bgColor = it }, eyedrop = eyedrop, label = "Warna background")
                         }
                         Effect("Blur", blurOn, { blurOn = it }) {
                             LabeledSlider("Radius", "${blurR.toInt()}px", blurR, 0f..25f) { blurR = it }
@@ -336,6 +344,13 @@ fun TextEditorDialog(
                             )
                         }
                     }
+                    NamedStylesCard(
+                        styles = namedStyles,
+                        onApply = ::applyLoaded,
+                        onSave = { onSaveNamedStyle(it, build()) },
+                        onDelete = onDeleteNamedStyle,
+                        onDuplicate = onDuplicateNamedStyle,
+                    )
                 }
                 // ---- FOOTER sticky: aksi tak pernah menumpuk konten ----
                 Divider()
@@ -394,6 +409,62 @@ private fun ModeChips(options: List<String>, selected: Int, onPick: (Int) -> Uni
     ChipRow {
         options.forEachIndexed { i, label ->
             FilterChip(selected = selected == i, onClick = { onPick(i) }, label = { Text(label) })
+        }
+    }
+}
+
+/** Style manager ala TypeR: simpan bernama, terapkan, duplikat, hapus. */
+@Composable
+private fun NamedStylesCard(
+    styles: Map<String, VastTextStyle>,
+    onApply: (VastTextStyle) -> Unit,
+    onSave: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onDuplicate: (String) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    CardSection("Style tersimpan (ala TypeR)") {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextField(
+                value = name, onValueChange = { name = it },
+                label = { Text("Nama style (mis. Dialog, SFX)") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(onClick = { onSave(name.trim()); name = "" }) { Text("Simpan") }
+        }
+        if (styles.isEmpty()) {
+            Text(
+                "Belum ada style tersimpan. Atur gaya di atas lalu simpan dengan nama.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            styles.toSortedMap().forEach { (n, s) ->
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).clickable { onApply(s) }) {
+                        Text(n, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                        Text(
+                            "${s.fontSizeSp.toInt()}sp • ${alignLabel(s.align)}" +
+                                if (s.effects.isNotEmpty()) " • ${s.effects.size} efek" else "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    TextButton(onClick = { onApply(s) }) { Text("Pakai") }
+                    IconButton(onClick = { onDuplicate(n) }) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Duplikat $n")
+                    }
+                    IconButton(onClick = { onDelete(n) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Hapus $n")
+                    }
+                }
+            }
         }
     }
 }

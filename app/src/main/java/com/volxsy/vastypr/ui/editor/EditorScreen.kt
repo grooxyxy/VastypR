@@ -123,6 +123,7 @@ fun EditorScreen(
     val state by vm.uiState.collectAsStateWithLifecycle()
     val strokes by vm.strokes.collectAsStateWithLifecycle()
     val fonts by vm.fontList.collectAsStateWithLifecycle()
+    val namedStyles by vm.textStyles.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
     val scaffold = rememberBottomSheetScaffoldState()
 
@@ -155,7 +156,7 @@ fun EditorScreen(
         }
     }
 
-    // ---- Smooth pan/zoom (fix #5): range dipersempit + clamp agar tidak liar ----
+    // ---- Pan/zoom: cubit hingga 10x (maksimal), zoom-out hingga 0.25x ----
     var scale by remember { mutableFloatStateOf(1f) }
     var pan by remember { mutableStateOf(Offset.Zero) }
     fun clampPan(p: Offset, s: Float): Offset {
@@ -163,7 +164,7 @@ fun EditorScreen(
         return Offset(p.x.coerceIn(-m, m), p.y.coerceIn(-m, m))
     }
     val transform = rememberTransformableState { zoom, offset, _ ->
-        scale = (scale * zoom).coerceIn(0.5f, 5f)
+        scale = (scale * zoom).coerceIn(ZOOM_MIN, ZOOM_MAX)
         // Damping ringan saat zoom-in agar tidak "keset": gerakan 1:1 terasa berat
         // saat scale besar, jadi normalisasi sedikit.
         val damp = 1f / scale.coerceAtLeast(1f).let { 0.7f + 0.3f * it }
@@ -227,6 +228,7 @@ fun EditorScreen(
                         sizePx = state.brushSizePx,
                         onColor = { vm.setBrush(it, state.brushSizePx, state.brushMode) },
                         onSize = { vm.setBrush(state.brushColor, it, state.brushMode) },
+                        eyedrop = rememberEyedrop(state.sourceUri, state.imageWidth, state.imageHeight, vm::samplePixel),
                     )
                 }
             }
@@ -588,11 +590,11 @@ fun EditorScreen(
                         Surface(shape = RoundedCornerShape(12.dp), tonalElevation = 3.dp, shadowElevation = 6.dp) {
                             Column(Modifier.padding(2.dp)) {
                                 IconButton(onClick = {
-                                    scale = (scale * 1.25f).coerceIn(0.5f, 5f)
+                                    scale = (scale * 1.25f).coerceIn(ZOOM_MIN, ZOOM_MAX)
                                 }) { Icon(Icons.Default.ZoomIn, contentDescription = "Zoom in") }
                                 IconButton(onClick = {
-                                    scale = (scale / 1.25f).coerceIn(0.5f, 5f)
-                                    if (scale <= 0.55f) pan = Offset.Zero
+                                    scale = (scale / 1.25f).coerceIn(ZOOM_MIN, ZOOM_MAX)
+                                    if (scale <= ZOOM_MIN + 0.05f) pan = Offset.Zero
                                 }) { Icon(Icons.Default.ZoomOut, contentDescription = "Zoom out") }
                                 IconButton(onClick = {
                                     scale = 1f; pan = Offset.Zero
@@ -646,6 +648,23 @@ fun EditorScreen(
                     }
                 }
             }
+            // Aksi TypeR: fit & pusatkan teks aktif ke bubble/seleksi.
+            if (activeText != null &&
+                (state.bubbles.isNotEmpty() || state.selectionRect != null)
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedButton(onClick = vm::fitActiveTextToBubble, enabled = aiEnabled) {
+                        Text("Fit ke bubble")
+                    }
+                    Spacer(Modifier.padding(4.dp))
+                    OutlinedButton(onClick = vm::centerActiveToBubble, enabled = aiEnabled) {
+                        Text("Pusatkan")
+                    }
+                }
+            }
             // Info seleksi ringkas (membuat preview terasa nyambung, fix #8)
             SelectionInfoBar(
                 hasCrop = state.cropRect != null,
@@ -693,6 +712,11 @@ fun EditorScreen(
                         showTextEditor = false
                     },
                     onDismiss = { showTextEditor = false },
+                    eyedrop = rememberEyedrop(state.sourceUri, state.imageWidth, state.imageHeight, vm::samplePixel),
+                    namedStyles = namedStyles,
+                    onSaveNamedStyle = vm::saveNamedStyle,
+                    onDeleteNamedStyle = vm::deleteNamedStyle,
+                    onDuplicateNamedStyle = vm::duplicateNamedStyle,
                 )
             }
             if (showExport) {
@@ -724,6 +748,21 @@ fun EditorScreen(
             }
         }
     }
+}
+
+private const val ZOOM_MIN = 0.25f
+private const val ZOOM_MAX = 10f
+
+/** Spec pipet bila ada gambar sumber berdimensi valid, else null (tombol Pipet sembunyi). */
+@Composable
+private fun rememberEyedrop(
+    sourceUri: String?,
+    imageWidth: Int,
+    imageHeight: Int,
+    sample: suspend (Float, Float) -> Color?,
+): com.volxsy.vastypr.ui.editor.components.EyedropSpec? = remember(sourceUri, imageWidth, imageHeight) {
+    if (sourceUri == null || imageWidth <= 0 || imageHeight <= 0) null
+    else com.volxsy.vastypr.ui.editor.components.EyedropSpec(sourceUri, imageWidth, imageHeight, sample)
 }
 
 private fun toolHint(t: EditorTool): String = when (t) {

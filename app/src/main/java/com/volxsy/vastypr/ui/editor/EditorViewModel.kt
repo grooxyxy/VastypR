@@ -119,6 +119,7 @@ class EditorViewModel @Inject constructor(
         viewModelScope.launch {
             fonts.refresh()
             prefs.textStyleJson().first()?.let { savedStyle = TextStyleJson.decode(it) }
+            prefs.textStylesJson().first()?.let { _textStyles.value = decodeStyles(it) }
         }
     }
 
@@ -137,19 +138,64 @@ class EditorViewModel @Inject constructor(
 
     fun pickColor(c: Color) = _uiState.update { it.copy(brushColor = c) } // eyedrop result
 
+    /**
+     * Eyedrop dari gambar sumber: baca 1 piksel pada koordinat ternormalisasi
+     * 0..1 (dipakai dialog pipet di text editor & brush). Sampel 1080px agar
+     * cepat; bitmap langsung di-recycle. Di luar gambar → null.
+     */
+    suspend fun samplePixel(nx: Float, ny: Float): Color? {
+        if (nx !in 0f..1f || ny !in 0f..1f) return null
+        val uriStr = _uiState.value.sourceUri ?: return null
+        return runCatching {
+            val bmp = tall.decodeSampled(Uri.parse(uriStr), 1080)
+            try {
+                val x = (nx * bmp.width).toInt().coerceIn(0, bmp.width - 1)
+                val y = (ny * bmp.height).toInt().coerceIn(0, bmp.height - 1)
+                Color(bmp.getPixel(x, y))
+            } finally {
+                if (!bmp.isRecycled) bmp.recycle()
+            }
+        }.getOrNull()
+    }
+
     // ---- Layer ops (syarat: add/delete/duplicate/copy/clip/folder) ----
     fun addImageLayer() = commitLayers(_uiState.value.layers + LayerManager.addImage("Image ${_uiState.value.layers.size}"))
-    fun addTextLayer() = commitLayers(_uiState.value.layers + LayerManager.addText("Text ${_uiState.value.layers.size}"))
+    fun addTextLayer() {
+        val content = "Text ${_uiState.value.layers.size}"
+        val base = LayerManager.addText(content)
+        val fitted = base.copy(
+            name = content.take(16),
+            style = base.style.copy(fontSizeSp = defaultTextSize(content)),
+        )
+        commitLayers(_uiState.value.layers + fitted)
+    }
 
     /** TEXT tool tap: tambah teks tepat di posisi tap (normalisasi 0..1 → offset -0.45..0.45). */
     fun addTextAt(nx: Float, ny: Float, content: String = "New text") {
         val ox = (nx - 0.5f).coerceIn(-0.45f, 0.45f)
         val oy = (ny - 0.5f).coerceIn(-0.45f, 0.45f)
         val base = LayerManager.addText(content)
-        val placed = base.copy(offsetX = ox, offsetY = oy, name = content.take(16).ifBlank { "Text" })
+        val placed = base.copy(
+            offsetX = ox, offsetY = oy, name = content.take(16).ifBlank { "Text" },
+            style = base.style.copy(fontSizeSp = defaultTextSize(content)),
+        )
         commitLayers(_uiState.value.layers + placed)
         setActive(placed.id)
         toast("Teks ditambah — tap teks untuk pilih, seret dengan Move")
+    }
+
+    /**
+     * Ukuran font default di-fit ke LEBAR canvas (bukan 28sp mentah yang
+     * kebesaran di kanvas kecil): blok teks ≈ 42% lebar canvas. Skala export
+     * (fontSizeSp×3 = px gambar) tetap konsisten karena proporsional.
+     */
+    private fun defaultTextSize(content: String): Float {
+        val density = appCtx.resources.displayMetrics.density.coerceAtLeast(1f)
+        val cwPx = _uiState.value.canvasWidth.takeIf { it > 0 }
+            ?: _uiState.value.imageWidth.takeIf { it > 0 } ?: 1080
+        val cwDp = cwPx / density
+        val longest = content.split("\n").maxOfOrNull { it.trim().length }?.coerceAtLeast(4) ?: 4
+        return (0.42f * cwDp / (0.55f * longest)).coerceIn(12f, 64f)
     }
     fun addFolder() = commitLayers(_uiState.value.layers + LayerManager.addFolder())
     fun deleteActive() {
@@ -199,6 +245,55 @@ class EditorViewModel @Inject constructor(
     }
 
     fun getSavedStyle(): VastTextStyle? = savedStyle
+
+    // ---- Style manager ala TypeR: named styles (simpan/duplikat/hapus/terapkan) ----
+    private val _textStyles = MutableStateFlow<Map<String, VastTextStyle>>(emptyMap())
+    val textStyles: StateFlow<Map<String, VastTextStyle>> = _textStyles.asStateFlow()
+
+    private fun decodeStyles(json: String): Map<String, VastTextStyle> = runCatching {
+        val o = org.json.JSONObject(json)
+        buildMap {
+            o.keys().forEach { k ->
+                TextStyleJson.decode(o.optString(k))?.let { put(k, it) }
+            }
+        }
+    }.getOrDefault(emptyMap())
+
+    private fun persistStyles(map: Map<String, VastTextStyle>) {
+        viewModelScope.launch {
+            val o = org.json.JSONObject()
+            map.forEach { (k, v) -> o.put(k, TextStyleJson.encode(v)) }
+            prefs.saveTextStylesJson(o.toString())
+            _textStyles.value = map
+        }
+    }
+
+    fun saveNamedStyle(name: String, style: VastTextStyle) {
+        val n = name.trim().take(24)
+        if (n.isEmpty()) {
+            toast("Beri nama style dulu")
+            return
+        }
+        persistStyles(_textStyles.value + (n to style))
+        toast("Style \"$n\" tersimpan")
+    }
+
+    fun deleteNamedStyle(name: String) {
+        if (!_textStyles.value.containsKey(name)) return
+        persistStyles(_textStyles.value - name)
+        toast("Style \"$name\" dihapus")
+    }
+
+    fun duplicateNamedStyle(name: String) {
+        val src = _textStyles.value[name] ?: return
+        var copy = "$name copy"
+        var i = 2
+        while (_textStyles.value.containsKey(copy)) {
+            copy = "$name copy $i"; i++
+        }
+        persistStyles(_textStyles.value + (copy to src))
+        toast("Style diduplikat → \"$copy\"")
+    }
 
     // ---- Font (FontManager: preview + fast load + import) ----
     fun fontTypeface(fontId: String?): Typeface? = fonts.getTypeface(fontId)
@@ -771,7 +866,7 @@ class EditorViewModel @Inject constructor(
                 _uiState.update { it.copy(bubbles = norm) }
                 _events.emit(EditorEvent.Message("Bubble: ${norm.size} terdeteksi"))
             } catch (e: Exception) {
-                _events.emit(EditorEvent.Message((e.message ?: "Detect gagal").take(250)))
+                _events.emit(EditorEvent.Message(aiErrorMessage("Detect bubble", e)))
             } finally {
                 clearBusy()
             }
@@ -1085,7 +1180,7 @@ class EditorViewModel @Inject constructor(
                 setActive(layer.id)
                 _events.emit(EditorEvent.Message("Clean selesai: $ok/$total bubble → layer baru"))
             } catch (e: Exception) {
-                _events.emit(EditorEvent.Message((e.message ?: "Clean gagal").take(250)))
+                _events.emit(EditorEvent.Message(aiErrorMessage("Clean", e)))
             } finally {
                 clearBusy()
             }
@@ -1129,8 +1224,66 @@ class EditorViewModel @Inject constructor(
         toast("Terjemahan dirender ke bubble (${fitted.toInt()}sp)")
     }
 
-    /** Kandidat mask normalisasi 0..1: lasso > ocr > selectionRect > bubbles. */
-    private fun maskPolysNormalized(): List<List<PointF>> {
+    // ---- TypeR: fit & pusatkan teks ke bubble/seleksi ----
+    private fun bubbleTargetBox(): RectF? {
+        val s = _uiState.value
+        return s.bubbles.firstOrNull()?.box ?: s.selectionRect
+    }
+
+    /** Auto-fit ala TypeR: ukuran + posisi teks aktif menyesuaikan bubble pertama/seleksi. */
+    fun fitActiveTextToBubble() {
+        val active = activeTextLayer() ?: run { toast("Pilih layer teks dulu"); return }
+        val box = bubbleTargetBox()
+            ?: run { toast("Deteksi bubble / buat seleksi dulu"); return }
+        val s = _uiState.value
+        val baseW = (s.imageWidth.takeIf { it > 0 } ?: s.canvasWidth.takeIf { it > 0 } ?: 1080).toFloat()
+        val boxWpx = (box.right - box.left).coerceAtLeast(0.05f) * baseW
+        val maxLen = active.content.split("\n").maxOfOrNull { it.trim().length }?.coerceAtLeast(1) ?: 1
+        // box px gambar → sp kanvas (≈ ÷3, konsisten dengan render export ×3).
+        val fitted = (boxWpx / (0.55f * maxLen) / 3f).coerceIn(10f, 64f)
+        val cx = (box.left + box.right) / 2f
+        val cy = (box.top + box.bottom) / 2f
+        val style = active.style.copy(
+            fontSizeSp = fitted,
+            align = com.volxsy.vastypr.editor.model.VastAlign.CENTER,
+        )
+        val next = s.layers.map { l ->
+            if (l is Layer.Text && l.id == active.id) {
+                l.copy(
+                    offsetX = (cx - 0.5f).coerceIn(-0.45f, 0.45f),
+                    offsetY = (cy - 0.5f).coerceIn(-0.45f, 0.45f),
+                    style = style,
+                )
+            } else {
+                l
+            }
+        }
+        commitLayers(next)
+        toast("Teks di-fit ke bubble (${fitted.toInt()}sp)")
+    }
+
+    /** Auto-center stabil ala TypeR: pindahkan teks aktif ke tengah bubble (ukuran tetap). */
+    fun centerActiveToBubble() {
+        val active = activeTextLayer() ?: run { toast("Pilih layer teks dulu"); return }
+        val box = bubbleTargetBox()
+            ?: run { toast("Deteksi bubble / buat seleksi dulu"); return }
+        val cx = (box.left + box.right) / 2f
+        val cy = (box.top + box.bottom) / 2f
+        val next = _uiState.value.layers.map { l ->
+            if (l is Layer.Text && l.id == active.id) {
+                l.copy(
+                    offsetX = (cx - 0.5f).coerceIn(-0.45f, 0.45f),
+                    offsetY = (cy - 0.5f).coerceIn(-0.45f, 0.45f),
+                )
+            } else {
+                l
+            }
+        }
+        commitLayers(next)
+        toast("Teks dipusatkan ke bubble")
+    }
+
+    /** Kandidat mask normalisasi 0..1: lasso > ocr > selectionRect > bubbles. */    private fun maskPolysNormalized(): List<List<PointF>> {
         val s = _uiState.value
         if (s.lassoPoints.size >= 3) {
             return listOf(s.lassoPoints.map { PointF(it.x, it.y) })
@@ -1156,6 +1309,19 @@ class EditorViewModel @Inject constructor(
     }
 
     fun toast(msg: String) = viewModelScope.launch { _events.emit(EditorEvent.Message(msg)) }
+
+    /** Pesan error AI yang ramah: bedakan op-tak-didukung vs model-hilang vs umum. */
+    private fun aiErrorMessage(action: String, e: Exception): String {
+        val raw = (e.message ?: "unknown").take(200)
+        val low = raw.lowercase()
+        return when {
+            e is com.volxsy.vastypr.ml.models.MissingModelException -> raw
+            e is ai.onnxruntime.OrtException || ("not supported" in low && "build" in low) ->
+                "$action gagal: model memakai op yang tak didukung build ini. " +
+                    "Update aplikasi & reinstall model, lalu coba lagi. ($raw)"
+            else -> "$action gagal: $raw"
+        }
+    }
 
     // ---- Busy helper (fluid + stabil: 1 pekerjaan AI dalam satu waktu) ----
     private fun setBusy(label: String, progress: Float? = null) {

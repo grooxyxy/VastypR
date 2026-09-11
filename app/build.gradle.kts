@@ -235,7 +235,7 @@ dependencies {
     // ---- MVP-2 (ML) — AKTIF atas izin user (turn Step 5/MVP-2) ----
     // Dep di-download oleh CI saat build, BUKAN oleh saya lokal.
     // File .onnx TIDAK ikut APK — user memasukkan manual ke filesDir/models.
-    implementation(libs.onnxruntime.mobile)      // YOLOv8m bubble + LaMa/MiGAN + PP-OCR ONNX
+    implementation(libs.onnxruntime.android)      // FULL (bukan mobile): semua op didukung
     implementation(libs.mlkit.text.recognition)  // ML Kit v2 text recognition (Latin, offline)
 
     testImplementation(libs.junit)

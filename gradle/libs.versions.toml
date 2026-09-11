@@ -49,9 +49,10 @@ retrofit-gson = { group = "com.squareup.retrofit2", name = "converter-gson", ver
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
-# ML — DITAHAN, tidak di-download tanpa izin. Dideklarasikan agar build GitHub siap saat model disediakan.
-# onnxruntime diaktifkan di MVP-2 (YOLOv8m bubble + LaMa + PP-OCR ONNX)
-onnxruntime-mobile = { group = "com.microsoft.onnxruntime", name = "onnxruntime-mobile", version.ref = "onnxruntime" }
+# ML — paket FULL onnxruntime-android (bukan -mobile): -mobile adalah build
+# reduced-ops dan melempar "...not supported in this build" untuk op tertentu.
+# Full mendukung semua op + semua ABI. Di-download CI saat build.
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitText" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 

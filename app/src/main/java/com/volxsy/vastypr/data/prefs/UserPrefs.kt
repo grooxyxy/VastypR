@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.map
 class UserPrefs(private val store: DataStore<Preferences>) {
     private object Keys {
         val TEXT_STYLE_JSON = stringPreferencesKey("text_style_json")
-        val EXPORT_FORMAT = stringPreferencesKey("export_format") // jpeg/png/webp
+        // Style manager ala TypeR: map nama → style JSON (1 objek JSON).
+        val TEXT_STYLES_JSON = stringPreferencesKey("text_styles_json")        val EXPORT_FORMAT = stringPreferencesKey("export_format") // jpeg/png/webp
         val DARK_THEME = booleanPreferencesKey("dark_theme")
         // Model manager — skill: android-local-persistence-datastore
         // Backend inpaint aktif + URL download per model. URL kosong = pakai
@@ -30,6 +31,8 @@ class UserPrefs(private val store: DataStore<Preferences>) {
     suspend fun setExportFormat(v: String) { store.edit { it[Keys.EXPORT_FORMAT] = v } }
     suspend fun saveTextStyleJson(json: String) { store.edit { it[Keys.TEXT_STYLE_JSON] = json } }
     fun textStyleJson(): Flow<String?> = store.data.map { it[Keys.TEXT_STYLE_JSON] }
+    suspend fun saveTextStylesJson(json: String) { store.edit { it[Keys.TEXT_STYLES_JSON] = json } }
+    fun textStylesJson(): Flow<String?> = store.data.map { it[Keys.TEXT_STYLES_JSON] }
 
     val inpaintBackend: Flow<String> = store.data.map { it[Keys.INPAINT_BACKEND] ?: "telea" }
     suspend fun setInpaintBackend(v: String) { store.edit { it[Keys.INPAINT_BACKEND] = v } }
