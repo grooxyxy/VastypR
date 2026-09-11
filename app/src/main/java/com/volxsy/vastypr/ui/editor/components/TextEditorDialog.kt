@@ -30,11 +30,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -323,16 +323,9 @@ private fun CardSection(title: String, body: @Composable () -> Unit) {
     }
 }
 
-/** Blur kompatibel: RenderEffect Compose (null otomatis di bawah API 31). */
+/** Blur kompatibel: Modifier.blur bawaan (graceful di bawah API 31). */
 fun Modifier.blurCompat(radiusPx: Float): Modifier =
-    if (radiusPx <= 0.01f) this
-    else {
-        graphicsLayer {
-            renderEffect = androidx.compose.ui.graphics.RenderEffect.createBlurEffect(
-                radiusPx, radiusPx,
-            )
-        }
-    }
+    if (radiusPx <= 0.01f) this else blur(radiusPx.dp)
 
 @Composable
 private fun PreviewCard(text: String, style: VastTextStyle) {
