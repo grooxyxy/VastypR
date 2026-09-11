@@ -13,7 +13,8 @@ class UserPrefs(private val store: DataStore<Preferences>) {
     private object Keys {
         val TEXT_STYLE_JSON = stringPreferencesKey("text_style_json")
         // Style manager ala TypeR: map nama → style JSON (1 objek JSON).
-        val TEXT_STYLES_JSON = stringPreferencesKey("text_styles_json")        val EXPORT_FORMAT = stringPreferencesKey("export_format") // jpeg/png/webp
+        val TEXT_STYLES_JSON = stringPreferencesKey("text_styles_json")
+        val EXPORT_FORMAT = stringPreferencesKey("export_format") // jpeg/png/webp
         val DARK_THEME = booleanPreferencesKey("dark_theme")
         // Model manager — skill: android-local-persistence-datastore
         // Backend inpaint aktif + URL download per model. URL kosong = pakai
